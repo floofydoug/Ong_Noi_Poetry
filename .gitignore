@@ -1,0 +1,22 @@
+# Secrets — never commit
+.env
+.env.*
+
+# Large source scans (live in iCloud / Supabase Storage, not the repo)
+/originals/
+
+# PRIVATE: transcriptions hold private family mentions + sensitivity — keep out of the
+# public repo. They live locally and go into Supabase (RLS-protected) instead.
+/data/transcriptions/
+/data/poem-variants.json
+
+# Generated / derived
+/derivatives/
+/verification/
+node_modules/
+.venv/
+.DS_Store
+
+# Next.js / build
+/.next/
+/out/

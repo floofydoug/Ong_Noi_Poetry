@@ -1,0 +1,415 @@
+scan_id,original_filename,set_number,page,variant,normalized_name,note,needs_review,size_bytes
+set-001,Set 1.tif,1,,,Set 001,,False,2155776
+set-002,Set 2.tif,2,,,Set 002,,False,2570078
+set-003,Set 3.tif,3,,,Set 003,,False,4947224
+set-004,Set 4.tif,4,,,Set 004,,False,5483658
+set-005,Set 005.tif,5,,,Set 005,,False,5694130
+set-005-alt2,Set 5.tif,5,,,Set 005,duplicate set number — distinct image colliding with 'set-005'; resolve during review,True,4637142
+set-006,Set 6.tif,6,,,Set 006,,False,6224694
+set-007,Set 7.tif,7,,,Set 007,,False,3330986
+set-008,Set 8.tif,8,,,Set 008,,False,5786326
+set-009,Set 9.tif,9,,,Set 009,,False,5831208
+set-010,Set 10.tif,10,,,Set 010,,False,6978142
+set-011,Set 11.tif,11,,,Set 011,,False,7171036
+set-012,Set 12.tif,12,,,Set 012,,False,6920558
+set-013,Set 13.tif,13,,,Set 013,,False,7371342
+set-014,Set 14.tif,14,,,Set 014,,False,6538364
+set-015,Set 15.tif,15,,,Set 015,,False,5531434
+set-016,Set 16.tif,16,,,Set 016,,False,4637500
+set-017,Set 17.tif,17,,,Set 017,,False,6783538
+set-018,Set 18.tif,18,,,Set 018,,False,8155464
+set-019,Set 19.tif,19,,,Set 019,,False,6741642
+set-020,Set 20.tif,20,,,Set 020,,False,8781252
+set-021,Set 21.tif,21,,,Set 021,,False,6680754
+set-022,Set 22.tif,22,,,Set 022,,False,7887570
+set-023,Set 23.tif,23,,,Set 023,,False,3135826
+set-024,Set 24.tif,24,,,Set 024,,False,3120192
+set-025,Set 25.tif,25,,,Set 025,,False,3357002
+set-026,Set 26.tif,26,,,Set 026,,False,3527320
+set-027,Set 27.tif,27,,,Set 027,,False,4132200
+set-028,Set 28.tif,28,,,Set 028,,False,4456926
+set-029,Set 29.tif,29,,,Set 029,,False,2464208
+set-030,Set 30.tif,30,,,Set 030,,False,2288922
+set-031,Set 31-Trang sau cua set 30.tif,31,,,Set 031,back page of Set 30 (Trang sau của set 30),True,2169556
+set-032,Set 32.tif,32,,,Set 032,,False,3475500
+set-033,Set 33.tif,33,,,Set 033,,False,2276082
+set-034a,Set 34 A.tif,34,A,,Set 034A,,False,3359818
+set-034b,Set 34 B.tif,34,B,,Set 034B,,False,3466632
+set-035,Set 35.tif,35,,,Set 035,,False,2899336
+set-036,Set 36.tif,36,,,Set 036,,False,2867160
+set-037,Set 37.tif,37,,,Set 037,,False,3264578
+set-038,Set 38.tif,38,,,Set 038,,False,3351696
+set-039,Set 39.tif,39,,,Set 039,,False,2676352
+set-040,Set 40.tif,40,,,Set 040,,False,4548118
+set-041,Set 41.tif,41,,,Set 041,,False,4646546
+set-042,Set 42.tif,42,,,Set 042,,False,5018294
+set-043a,Set 43A.tif,43,A,,Set 043A,,False,3072530
+set-043b,Set 43B.tif,43,B,,Set 043B,,False,3093328
+set-044,Set 44.tif,44,,,Set 044,,False,1853140
+set-045,Set 45.tif,45,,,Set 045,,False,3289216
+set-046,Set 46 Khong dde.tif,46,,,Set 046,poem is untitled (Không đề),False,1911638
+set-047,Set 47.tif,47,,,Set 047,,False,3236820
+set-048,Set 48.tif,48,,,Set 048,,False,5209790
+set-049,Set 49.tif,49,,,Set 049,,False,3705322
+set-050,Set 50.tif,50,,,Set 050,,False,8180428
+set-052,Set 52.tif,52,,,Set 052,,False,7454838
+set-053,Set 53.tif,53,,,Set 053,,False,6351414
+set-054,Set 54.tif,54,,,Set 054,,False,6954504
+set-055,Set 55.tif,55,,,Set 055,,False,6805020
+set-056,Set 56.tif,56,,,Set 056,,False,25595096
+set-056-2,Set 56 2.tif,56,,second-scan,Set 056 (dup #),distinct poem sharing set number (filename ' 2'); likely needs renumbering — verify during review,True,5693032
+set-057,Set 57.tif,57,,,Set 057,,False,6045920
+set-058,Set 58.tif,58,,,Set 058,,False,2019122
+set-059,Set 59.tif,59,,,Set 059,,False,2043672
+set-060,Set 60.tif,60,,,Set 060,,False,1857316
+set-061a,Set 61A.tif,61,A,,Set 061A,,False,2327306
+set-061b,Set 61B.tif,61,B,,Set 061B,,False,1453156
+set-062,Set 62.tif,62,,,Set 062,,False,1871412
+set-063,Set 63.tif,63,,,Set 063,,False,2235468
+set-065,Set 65.tif,65,,,Set 065,,False,3032180
+set-066,Set 66.tif,66,,,Set 066,,False,3036412
+set-067a,Set 67A.tif,67,A,,Set 067A,,False,2881012
+set-067b,Set 67B.tif,67,B,,Set 067B,,False,156532
+set-068,Set 68.tif,68,,,Set 068,,False,2596470
+set-069,Set 69.tif,69,,,Set 069,,False,3475336
+set-070,Set 70.tif,70,,,Set 070,,False,2703484
+set-071,Set 71.tif,71,,,Set 071,,False,6476626
+set-072,Set 72.tif,72,,,Set 072,,False,2601912
+set-073,Set 73.tif,73,,,Set 073,,False,2546352
+set-074,Set 74.tif,74,,,Set 074,,False,3564244
+set-074a,Set 74A.tif,74,A,,Set 074A,,False,3482638
+set-074b,Set 74B.tif,74,B,,Set 074B,,False,4927324
+set-075a,Set 75A.tif,75,A,,Set 075A,,False,3027508
+set-075b,Set 75B.tif,75,B,,Set 075B,,False,4699546
+set-076a,Set 76A.tif,76,A,,Set 076A,,False,2519444
+set-076b,Set 76B.tif,76,B,,Set 076B,,False,4526098
+set-076c,Set 76C.tif,76,C,,Set 076C,,False,7648300
+set-077,Set 77 long.tif,77,,,Set 077,"descriptor ""long"" — verify during review",True,5383318
+set-078,Set 78.tif,78,,,Set 078,,False,5272812
+set-079a,Set 79A Large.tif,79,A,,Set 079A,large-format scan,False,6424924
+set-079b,Set 79B.tif,79,B,,Set 079B,,False,3887476
+set-080a,Set 80 A.tif,80,A,,Set 080A,,False,6292790
+set-081,Set 81.tif,81,,,Set 081,,False,4069748
+set-082,Set 82.tif,82,,,Set 082,,False,26671252
+set-082-2,Set 82 2.tif,82,,second-scan,Set 082 (dup #),distinct poem sharing set number (filename ' 2'); likely needs renumbering — verify during review,True,7000064
+set-084,Set 84.tif,84,,,Set 084,,False,8917652
+set-085,Set 85.tif,85,,,Set 085,,False,18922630
+set-085a,Set 85A.tif,85,A,,Set 085A,,False,10044784
+set-085b,Set 85B.tif,85,B,,Set 085B,,False,8372294
+set-086a,Set 86A.tif,86,A,,Set 086A,,False,9881872
+set-086b,Set 86B.tif,86,B,,Set 086B,,False,9186550
+set-087,Set 87.tif,87,,,Set 087,,False,18055054
+set-087a,Set 87A.tif,87,A,,Set 087A,,False,9015958
+set-087b,Set 87B.tif,87,B,,Set 087B,,False,7090772
+set-088,Set 88.tif,88,,,Set 088,,False,14800604
+set-088a,Set 88A.tif,88,A,,Set 088A,,False,3736566
+set-088b,Set 88B.tif,88,B,,Set 088B,,False,3247910
+set-089,Set 89.tif,89,,,Set 089,,False,14960866
+set-089-2,Set 89 2.tif,89,,second-scan,Set 089 (dup #),distinct poem sharing set number (filename ' 2'); likely needs renumbering — verify during review,True,2256486
+set-090,Set 90.tif,90,,,Set 090,,False,14897996
+set-090-2,Set 90 2.tif,90,,second-scan,Set 090 (dup #),distinct poem sharing set number (filename ' 2'); likely needs renumbering — verify during review,True,2703680
+set-091,Set 91.tif,91,,,Set 091,,False,16120366
+set-091-2,Set 91 2.tif,91,,second-scan,Set 091 (dup #),distinct poem sharing set number (filename ' 2'); likely needs renumbering — verify during review,True,4956404
+set-092,Set 92.tif,92,,,Set 092,,False,16574660
+set-092-2,Set 92 2.tif,92,,second-scan,Set 092 (dup #),distinct poem sharing set number (filename ' 2'); likely needs renumbering — verify during review,True,3565886
+set-093,Set 93.tif,93,,,Set 093,,False,23387292
+set-093a,Set 93A.tif,93,A,,Set 093A,,False,5316908
+set-093b,Set 93B.tif,93,B,,Set 093B,,False,5234470
+set-094,Set 94.tif,94,,,Set 094,,False,23191578
+set-094a,Set 94A.tif,94,A,,Set 094A,,False,1133174
+set-094b,Set 94B.tif,94,B,,Set 094B,,False,415880
+set-095,Set 95.tif,95,,,Set 095,,False,19945660
+set-095a,Set 95A.tif,95,A,,Set 095A,,False,3073604
+set-095b,Set 95B.tif,95,B,,Set 095B,,False,3116260
+set-096,Set 96.tif,96,,,Set 096,,False,19334974
+set-096a,Set 96 A.tif,96,A,,Set 096A,,False,8279374
+set-096b,Set 96 B.tif,96,B,,Set 096B,,False,6629200
+set-097,Set 97.tif,97,,,Set 097,,False,16571854
+set-097a,Set 97A.tif,97,A,,Set 097A,,False,8657486
+set-097b,Set 97B.tif,97,B,,Set 097B,,False,9473286
+set-098,Set 98.tif,98,,,Set 098,,False,16241860
+set-098a,Set 98A.tif,98,A,,Set 098A,,False,6838598
+set-098b,Set 98B.tif,98,B,,Set 098B,,False,5761416
+set-099,Set 99.tif,99,,,Set 099,,False,7203270
+set-100,Set 100.tif,100,,,Set 100,,False,11415592
+set-101,Set 101.tif,101,,,Set 101,,False,25146748
+set-101a,Set 101A.tif,101,A,,Set 101A,,False,3007854
+set-101b,Set 101B.tif,101,B,,Set 101B,,False,3205042
+set-102,Set 102.tif,102,,,Set 102,,False,19600824
+set-102-2,Set 102 2.tif,102,,second-scan,Set 102 (dup #),distinct poem sharing set number (filename ' 2'); likely needs renumbering — verify during review,True,4184768
+set-103,Set 103.tif,103,,,Set 103,,False,3344476
+set-104,Set 104.tif,104,,,Set 104,,False,13441604
+set-104-2,Set 104 2.tif,104,,second-scan,Set 104 (dup #),distinct poem sharing set number (filename ' 2'); likely needs renumbering — verify during review,True,4503280
+set-105,Set 105.tif,105,,,Set 105,,False,13910484
+set-105a,Set 105A.tif,105,A,,Set 105A,,False,3815418
+set-105b,Set 105B.tif,105,B,,Set 105B,,False,546452
+set-106,Set 106.tif,106,,,Set 106,,False,13467520
+set-106-2,Set 106 2.tif,106,,second-scan,Set 106 (dup #),distinct poem sharing set number (filename ' 2'); likely needs renumbering — verify during review,True,2102746
+set-107a,Set 107A.tif,107,A,,Set 107A,,False,3799870
+set-107b,Set 107B.tif,107,B,,Set 107B,,False,2677336
+set-108,Set 108.tif,108,,,Set 108,,False,10477866
+set-108-2,Set 108 2.tif,108,,second-scan,Set 108 (dup #),distinct poem sharing set number (filename ' 2'); likely needs renumbering — verify during review,True,5071244
+set-109,Set 109.tif,109,,,Set 109,,False,17298018
+set-109-2,Set 109 2.tif,109,,second-scan,Set 109 (dup #),distinct poem sharing set number (filename ' 2'); likely needs renumbering — verify during review,True,2800792
+set-110,Set 110.tif,110,,,Set 110,,False,14268082
+set-110-2,Set 110 2.tif,110,,second-scan,Set 110 (dup #),distinct poem sharing set number (filename ' 2'); likely needs renumbering — verify during review,True,2815026
+set-111,Set 111.tif,111,,,Set 111,,False,12469060
+set-111-2,Set 111 2.tif,111,,second-scan,Set 111 (dup #),distinct poem sharing set number (filename ' 2'); likely needs renumbering — verify during review,True,3523462
+set-112,Set 112.tif,112,,,Set 112,,False,18451998
+set-112a,Set 112A.tif,112,A,,Set 112A,,False,7689890
+set-112b,Set 112B.tif,112,B,,Set 112B,,False,7564582
+set-113,Set 113.tif,113,,,Set 113,,False,25793972
+set-113a,Set 113A.tif,113,A,,Set 113A,,False,10773506
+set-113b,Set 113B.tif,113,B,,Set 113B,,False,8847884
+set-114,Set 114.tif,114,,,Set 114,,False,4132118
+set-115,Set 115.tif,115,,,Set 115,,False,8199636
+set-116,Set 116.tif,116,,,Set 116,,False,14868552
+set-117,Set 117.tif,117,,,Set 117,,False,9358230
+set-118,Set 118.tif,118,,,Set 118,,False,7261024
+set-118a,Set 118A.tif,118,A,,Set 118A,,False,3490568
+set-118b,Set 118B.tif,118,B,,Set 118B,,False,3566120
+set-119,Set 119.tif,119,,,Set 119,,False,4029532
+set-119a,Set 119A.tif,119,A,,Set 119A,,False,3230782
+set-119b,Set 119B.tif,119,B,,Set 119B,,False,2049656
+set-120,Set 120.tif,120,,,Set 120,,False,3268948
+set-121,Set 121.tif,121,,,Set 121,,False,4209238
+set-122,Set 122.tif,122,,,Set 122,,False,4474062
+set-123,Set 123.tif,123,,,Set 123,,False,5495686
+set-124,Set 124.tif,124,,,Set 124,,False,3822078
+set-125,Set 125.tif,125,,,Set 125,,False,3595412
+set-126,Set 126.tif,126,,,Set 126,,False,3728468
+set-127,Set 127.tif,127,,,Set 127,,False,4524966
+set-128,Set 128.tif,128,,,Set 128,,False,4772010
+set-129a,Set 129A.tif,129,A,,Set 129A,,False,3894026
+set-129b,Set 129B.tif,129,B,,Set 129B,,False,3573950
+set-130,Set 130.tif,130,,,Set 130,,False,2467778
+set-130b,Set 130B.tif,130,B,,Set 130B,,False,2397802
+set-131a,Set 131A.tif,131,A,,Set 131A,,False,985658
+set-131b,Set 131B.tif,131,B,,Set 131B,,False,899588
+set-132,Set 132.tif,132,,,Set 132,,False,3421026
+set-132b,Set 132B.tif,132,B,,Set 132B,,False,7710730
+set-133,Set 133.tif,133,,,Set 133,,False,4537398
+set-139,Set 139.tif,139,,,Set 139,,False,2831028
+set-140,Set 140.tif,140,,,Set 140,,False,6679572
+set-141a,Set 141A.tif,141,A,,Set 141A,,False,1350052
+set-141b,Set 141B.tif,141,B,,Set 141B,,False,1379510
+set-141c,Set 141C.tif,141,C,,Set 141C,,False,1695962
+set-142,Set 142.tif,142,,,Set 142,,False,3131464
+set-143,Set 143.tif,143,,,Set 143,,False,5197908
+set-144,Set 144.tif,144,,,Set 144,,False,2373026
+set-145,Set 145.tif,145,,,Set 145,,False,3941626
+set-146,Set 146.tif,146,,,Set 146,,False,5603340
+set-147,Set 147.tif,147,,,Set 147,,False,10971336
+set-148,Set 148.tif,148,,,Set 148,,False,6930060
+set-149,Set 149.tif,149,,,Set 149,,False,4580094
+set-149a,Set 149A.tif,149,A,,Set 149A,,False,4359894
+set-149b,Set 149B.tif,149,B,,Set 149B,,False,3863722
+set-150a,Set 150A.tif,150,A,,Set 150A,,False,1803226
+set-150b,Set 150B.tif,150,B,,Set 150B,,False,405706
+set-151a,Set 151A.tif,151,A,,Set 151A,,False,5315556
+set-151b,Set 151B.tif,151,B,,Set 151B,,False,4512372
+set-152a,Set 152A.tif,152,A,,Set 152A,,False,6001054
+set-152b,SeT 152B.tif,152,B,,Set 152B,,False,4961454
+set-152c,Set 152C.tif,152,C,,Set 152C,,False,1039282
+set-153a,Set 153A.tif,153,A,,Set 153A,,False,6719036
+set-153b,Set 153B.tif,153,B,,Set 153B,,False,5391356
+set-154,Set 154.tif,154,,,Set 154,,False,4830656
+set-155,Set 155.tif,155,,,Set 155,,False,6575762
+set-156,Set 156.tif,156,,,Set 156,,False,9758870
+set-157,Set 157.tif,157,,,Set 157,,False,8478636
+set-158,Set 158.tif,158,,,Set 158,,False,5347884
+set-163,Set 163.tif,163,,,Set 163,,False,4886938
+set-163a,Set 163A.tif,163,A,,Set 163A,,False,3913060
+set-164,Set 164.tif,164,,,Set 164,,False,5209666
+set-165,Set 165.tif,165,,,Set 165,,False,5468272
+set-166a,Set 166A.tif,166,A,,Set 166A,,False,2769286
+set-166b,Set 166B.tif,166,B,,Set 166B,,False,4481790
+set-167a,Set 167A.tif,167,A,,Set 167A,,False,3475390
+set-167b,Set 167B.tif,167,B,,Set 167B,,False,4208422
+set-167c,Set 167C.tif,167,C,,Set 167C,,False,333876
+set-168,Set 168.tif,168,,,Set 168,,False,2708486
+set-169,Set 169.tif,169,,,Set 169,,False,1637532
+set-170,Set 170.tif,170,,,Set 170,,False,1981360
+set-171,Set 171.tif,171,,,Set 171,,False,3823036
+set-172,Set 172.tif,172,,,Set 172,,False,6108954
+set-173,Set 173.tif,173,,,Set 173,,False,5909564
+set-174,Set 174.tif,174,,,Set 174,,False,4687820
+set-175,Set 175.tif,175,,,Set 175,,False,6368048
+set-176b,Set 176B.tif,176,B,,Set 176B,,False,3365936
+set-177a,Set 177A.tif,177,A,,Set 177A,,False,3353692
+set-177b,Set 177B.tif,177,B,,Set 177B,,False,2369798
+set-178a,Set 178A.tif,178,A,,Set 178A,,False,4795020
+set-178b,Set 178B.tif,178,B,,Set 178B,,False,4513044
+set-179a,Set 179A.tif,179,A,,Set 179A,,False,2578460
+set-180,Set 180.tif,180,,,Set 180,,False,4802414
+set-181,Set 181.tif,181,,,Set 181,,False,5971372
+set-182,Set 182.tif,182,,,Set 182,,False,5474804
+set-183,Set 183.tif,183,,,Set 183,,False,3489990
+set-184,Set 184.tif,184,,,Set 184,,False,3628230
+set-185,Set 185.tif,185,,,Set 185,,False,4508320
+set-186,Set 186.tif,186,,,Set 186,,False,4661110
+set-187,Set 187.tif,187,,,Set 187,,False,5203922
+set-188,Set 188.tif,188,,,Set 188,,False,5867068
+set-189,Set 189.tif,189,,,Set 189,,False,5501440
+set-190,Set 190.tif,190,,,Set 190,,False,4819180
+set-191,Set 191.tif,191,,,Set 191,,False,3686618
+set-192,Set 192.tif,192,,,Set 192,,False,6389108
+set-194,Set 194.tif,194,,,Set 194,,False,7938586
+set-194a,Set 194A.tif,194,A,,Set 194A,,False,3631648
+set-194b,Set 194B.tif,194,B,,Set 194B,,False,1871470
+set-195,Set 195.tif,195,,,Set 195,,False,3723936
+set-196,Set 196.tif,196,,,Set 196,,False,2391096
+set-197,Set 197.tif,197,,,Set 197,,False,1154430
+set-198,Set 198.tif,198,,,Set 198,,False,3185828
+set-199,Set 199.tif,199,,,Set 199,,False,1903950
+set-200,Set 200.tif,200,,,Set 200,,False,2819398
+set-201,Set 201.tif,201,,,Set 201,,False,5887596
+set-202,Set 202.tif,202,,,Set 202,,False,6795008
+set-203a,Set 203A.tif,203,A,,Set 203A,,False,8577010
+set-203b,Set 203B.tif,203,B,,Set 203B,,False,7342990
+set-204,Set 204.tif,204,,,Set 204,,False,4990842
+set-205,Set 205.tif,205,,,Set 205,,False,5948274
+set-206,Set 206.tif,206,,,Set 206,,False,4849828
+set-207,Set 207.tif,207,,,Set 207,,False,8337770
+set-208,Set 208.tif,208,,,Set 208,,False,7881062
+set-209,Set 209.tif,209,,,Set 209,,False,1662808
+set-210,Set 210.tif,210,,,Set 210,,False,2970370
+set-211,Set 211.tif,211,,,Set 211,,False,4523342
+set-212,Set 212.tif,212,,,Set 212,,False,3191152
+set-213a,Set 213A.tif,213,A,,Set 213A,,False,3341894
+set-213b,Set 213B.tif,213,B,,Set 213B,,False,2376132
+set-213c,Set 213C.tif,213,C,,Set 213C,,False,650482
+set-214,Set 214.tif,214,,,Set 214,,False,2143640
+set-215,Set 215.tif,215,,,Set 215,,False,8612196
+set-216,Set 216.tif,216,,,Set 216,,False,9978772
+set-217,Set 217.tif,217,,,Set 217,,False,11481588
+set-218a,Set 218A.tif,218,A,,Set 218A,,False,4946472
+set-218b,Set 218B.tif,218,B,,Set 218B,,False,6656076
+set-219a,Set 219A.tif,219,A,,Set 219A,,False,5982014
+set-219b,Set 219B.tif,219,B,,Set 219B,,False,4899390
+set-220a,Set 220A.tif,220,A,,Set 220A,,False,5767992
+set-220b,Set 220B.tif,220,B,,Set 220B,,False,5238690
+set-221a,Set 221A.tif,221,A,,Set 221A,,False,5904882
+set-221b,Set 221B.tif,221,B,,Set 221B,,False,4804508
+set-222a,Set 222A.tif,222,A,,Set 222A,,False,13526576
+set-222b,Set 222B.tif,222,B,,Set 222B,,False,13417148
+set-223a,Set 223A.tif,223,A,,Set 223A,,False,9698216
+set-223b,Set 223B.tif,223,B,,Set 223B,,False,25595096
+set-224a,Set 224A.tif,224,A,,Set 224A,,False,4763310
+set-224b,Set 224B.tif,224,B,,Set 224B,,False,4333306
+set-225,Set 225.tif,225,,,Set 225,,False,5069388
+set-226a,Set 226A.tif,226,A,,Set 226A,,False,9888232
+set-226b,Set 226B.tif,226,B,,Set 226B,,False,9389320
+set-227a,Set 227A.tif,227,A,,Set 227A,,False,3208174
+set-227b,Set 227B.tif,227,B,,Set 227B,,False,2630074
+set-228a,Set 228A.tif,228,A,,Set 228A,,False,11568304
+set-228b,Set 228B.tif,228,B,,Set 228B,,False,11482352
+set-229a,Set 229A.tif,229,A,,Set 229A,,False,9851074
+set-230a,Set 230A.tif,230,A,,Set 230A,,False,9593272
+set-231a,Set 231A.tif,231,A,,Set 231A,,False,8078270
+set-233a,Set 233A.tif,233,A,,Set 233A,,False,13352760
+set-233b,Set 233B.tif,233,B,,Set 233B,,False,12835956
+set-234a,Set 234A.tif,234,A,,Set 234A,,False,12044558
+set-234b,Set 234B.tif,234,B,,Set 234B,,False,11605550
+set-235a,Set 235A.tif,235,A,,Set 235A,,False,11420264
+set-235b,Set 235B.tif,235,B,,Set 235B,,False,11379748
+set-236a,Set 236A.tif,236,A,,Set 236A,,False,12892704
+set-236b,Set 236B.tif,236,B,,Set 236B,,False,12409784
+set-237a,Set 237A.tif,237,A,,Set 237A,,False,12143332
+set-237b,Set 237B.tif,237,B,,Set 237B,,False,11304856
+set-238a,Set 238A.tif,238,A,,Set 238A,,False,7447898
+set-238b,Set 238B.tif,238,B,,Set 238B,,False,5986366
+set-239,Set 239.tif,239,,,Set 239,,False,2778896
+set-240a,Set 240A.tif,240,A,,Set 240A,,False,8857276
+set-240b,Set 240B.tif,240,B,,Set 240B,,False,8670860
+set-241a,Set 241A.tif,241,A,,Set 241A,,False,9564622
+set-241b,Set 241B.tif,241,B,,Set 241B,,False,9238410
+set-242a,Set 242A.tif,242,A,,Set 242A,,False,9621420
+set-242b,Set 242B.tif,242,B,,Set 242B,,False,9749732
+set-243a,Set 243A.tif,243,A,,Set 243A,,False,11409192
+set-243b,Set 243B.tif,243,B,,Set 243B,,False,9911600
+set-244a,Set 244A.tif,244,A,,Set 244A,,False,9030962
+set-244b,Set 244B.tif,244,B,,Set 244B,,False,8982292
+set-245a,Set 245A.tif,245,A,,Set 245A,,False,6243308
+set-245b,Set 245B.tif,245,B,,Set 245B,,False,6322022
+set-246a,Set 246A.tif,246,A,,Set 246A,,False,5385230
+set-246b,Set 246B.tif,246,B,,Set 246B,,False,5386948
+set-247a,Set 247A.tif,247,A,,Set 247A,,False,5688400
+set-247b,Set 247B.tif,247,B,,Set 247B,,False,5755588
+set-248a,Set 248A.tif,248,A,,Set 248A,,False,6629554
+set-248b,Set 248B.tif,248,B,,Set 248B,,False,5940206
+set-249,Set 249.tif,249,,,Set 249,,False,17092952
+set-250a,Set 250A.tif,250,A,,Set 250A,,False,4479040
+set-250b,Set 250B.tif,250,B,,Set 250B,,False,3593862
+set-251,Set 251.tif,251,,,Set 251,,False,9231494
+set-252a,Set 252A.tif,252,A,,Set 252A,,False,3075106
+set-252b,Set 252B.tif,252,B,,Set 252B,,False,2438040
+set-253,Set 253.tif,253,,,Set 253,,False,6255020
+set-254,Set 254.tif,254,,,Set 254,,False,7847442
+set-255,Set 255.tif,255,,,Set 255,,False,6522494
+set-256,Set 256.tif,256,,,Set 256,,False,7186458
+set-257,Set 257.tif,257,,,Set 257,,False,5718454
+set-258a,Set 258A.tif,258,A,,Set 258A,,False,5201644
+set-258b,Set 258B.tif,258,B,,Set 258B,,False,5498472
+set-259,Set 259.tif,259,,,Set 259,,False,5796792
+set-260,Set 260.tif,260,,,Set 260,,False,5651688
+set-261,Set 261.tif,261,,,Set 261,,False,4611392
+set-262,Set 262.tif,262,,,Set 262,,False,6349316
+set-263,Set 263.tif,263,,,Set 263,,False,4951006
+set-264,Set 264.tif,264,,,Set 264,,False,5628486
+set-265,Set 265.tif,265,,,Set 265,,False,1747238
+set-266a,Set 266A.tif,266,A,,Set 266A,,False,2182412
+set-266b,Set 266B.tif,266,B,,Set 266B,,False,6438166
+set-267,Set 267.tif,267,,,Set 267,,False,15684340
+set-267a,Set 267A.tif,267,A,,Set 267A,,False,12384276
+set-267b,Set 267B.tif,267,B,,Set 267B,,False,12631616
+set-268a,Set 268A.tif,268,A,,Set 268A,,False,7099880
+set-269a,Set 269 AA.tif,269,A,,Set 269A,,False,18401824
+set-269b,Set 269 BB .tif,269,B,,Set 269B,,False,18922630
+set-270a,Set 270A.tif,270,A,,Set 270A,,False,12925036
+set-270b,Set 270B.tif,270,B,,Set 270B,,False,13018642
+set-271a,Set 271 A Tif.tif,271,A,,Set 271A,,False,18055054
+set-271b,Set 271B Tif.tif,271,B,,Set 271B,,False,14800604
+set-272a,Set 272A Tif.tif,272,A,,Set 272A,,False,14960866
+set-272b,Set 272 B 001 Tif.tif,272,B,,Set 272B,,False,14897996
+set-273a,Set 273A 001 Tif.tif,273,A,,Set 273A,,False,16574660
+set-273b,Set 273 B 001 Tif.tif,273,B,,Set 273B,,False,16120366
+set-274a,Set 274 A 001 Tif.tif,274,A,,Set 274A,,False,23387292
+set-274b,Set 274 B 001 Tif.tif,274,B,,Set 274B,,False,23191578
+set-275a,Set 275 A 001 Tif.tif,275,A,,Set 275A,,False,19945660
+set-275b,Set 275 B 001 Tif.tif,275,B,,Set 275B,,False,19334974
+set-276a,Set 276 A 001 Tif.tif,276,A,,Set 276A,,False,16571854
+set-276b,Set 276 B.tif,276,B,,Set 276B,,False,16241860
+set-279a,Set 279 A.tif,279,A,,Set 279A,,False,12117950
+set-279b,Set 279 B.tif,279,B,,Set 279B,,False,11897918
+set-280a,Set 280 A Mục Lục.tif,280,A,,Set 280A,table of contents (Mục lục),True,5355738
+set-280b,Set 280 B Mục lục.tif,280,B,,Set 280B,table of contents (Mục lục),True,5799100
+set-281,Set 281.tif,281,,,Set 281,,False,25146748
+set-283,Set 283.tif,283,,,Set 283,,False,19600824
+set-283a,Set 283 A.tif,283,A,,Set 283A,,False,12423958
+set-283b,Set 283 B.tif,283,B,,Set 283B,,False,9733898
+set-284a,Set 284A.tif,284,A,,Set 284A,,False,13441604
+set-284b,Set 284B.tif,284,B,,Set 284B,,False,13910484
+set-285a,Set 285 A.tif,285,A,,Set 285A,,False,13467520
+set-285b,Set 285 B.tif,285,B,,Set 285B,,False,13123790
+set-286a,Set 286 A.tif,286,A,,Set 286A,,False,10846464
+set-286b,Set 286 B.tif,286,B,,Set 286B,,False,10477866
+set-287,Set 287.tif,287,,,Set 287,,False,17298018
+set-288,Set 288.tif,288,,,Set 288,,False,14268082
+set-289,Set 289.tif,289,,,Set 289,,False,12469060
+set-290,Set 290.tif,290,,,Set 290,,False,18451998
+set-291a,Set 291A.tif,291,A,,Set 291A,,False,25793972
+set-291b,Set 291B.tif,291,B,,Set 291B,,False,25878410
+set-293,Set 293.tif,293,,,Set 293,,False,21659796
+set-295,Set 295.tif,295,,,Set 295,,False,9956762
+set-296,Set 296.tif,296,,,Set 296,,False,14281922
+set-297,Set 297.tif,297,,,Set 297,,False,15968830
+set-298b,Set 298 B.tif,298,B,,Set 298B,,False,8882078
+set-299a,Set 299 A.tif,299,A,,Set 299A,,False,2633102
+set-299b,Set 299 B.tif,299,B,,Set 299B,,False,537428
+set-300a,Set 300A.tif,300,A,,Set 300A,,False,18253812
+set-300b,Set 300B.tif,300,B,,Set 300B,,False,17729328
+set-303a,Set 303 A.tif,303,A,,Set 303A,,False,6138932
+set-303b,Set 303 B.tif,303,B,,Set 303B,,False,884924
+set-305,Set 305.tif,305,,,Set 305,,False,5382644
+set-307,Set 307.tif,307,,,Set 307,,False,8577678
