@@ -1,0 +1,199 @@
+// Ông Nội Poetry — data model (Postgres via Prisma). Mirrors the archive:
+// SET (a "sitting") -> PAGE(s)/scans -> POEM(s). One scan can hold many poems;
+// one poem can span many scans (A/B/C pages).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PoemStatus {
+  draft
+  needs_review
+  verified
+}
+
+enum Visibility {
+  public
+  family
+  private
+}
+
+/// A SET = a sitting/session in which Ông organized older work. NOT a theme.
+model Set {
+  id          String    @id @default(uuid())
+  setNumber   Int?
+  slug        String    @unique
+  title       String?
+  description String?
+  sittingDate DateTime? @db.Date
+  sortOrder   Int?
+  createdAt   DateTime  @default(now())
+  poems       Poem[]
+
+  @@map("sets")
+}
+
+/// One row per original TIF scan.
+model Scan {
+  id               String     @id @default(uuid())
+  scanId           String     @unique // e.g. "set-101a"
+  originalFilename String
+  setNumber        Int?
+  page             String? // 'A' | 'B' | ''
+  variant          String? // e.g. 'second-scan'
+  s3Original       String? // S3 key for the TIF
+  s3Display        String? // S3 key for the web JPEG/WebP
+  s3Thumb          String?
+  width            Int?
+  height           Int?
+  note             String? // e.g. 'table of contents (Mục lục)'
+  needsReview      Boolean    @default(false)
+  createdAt        DateTime   @default(now())
+  poemScans        PoemScan[]
+
+  @@map("scans")
+}
+
+model Poem {
+  id                 String           @id @default(uuid())
+  setId              String?
+  set                Set?             @relation(fields: [setId], references: [id], onDelete: SetNull)
+  slug               String           @unique
+  title              String?
+  titleVi            String?
+  dateText           String?
+  dateIso            DateTime?        @db.Date
+  place              String?
+  author             String?
+  lines              Json? // [{ vi, en }, ...] bilingual, line-by-line
+  transcription      String? // plain VI text (for search)
+  uncertainSpans     String[]
+  confidence         String?
+  notes              String?
+  visibility         Visibility       @default(public)
+  sensitivityLevel   String?          @default("none")
+  sensitivityReason  String?
+  boundaryReason     String? // title | signature | separator | gap | only-poem
+  boundaryConfidence String?
+  sortOrder          Int?
+  status             PoemStatus       @default(draft)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  poemScans          PoemScan[]
+  footnotes          Footnote[]
+  marginalia         Marginalia[]
+  poemTags           PoemTag[]
+  mentions           PoemMention[] // PRIVATE — never exposed publicly
+  relationsFrom      PoemRelation[]   @relation("relFrom")
+  relationsTo        PoemRelation[]   @relation("relTo")
+  suggestions        EditSuggestion[]
+
+  @@map("poems")
+}
+
+/// Join: one scan -> many poems AND one poem -> many scans (A/B/C pages).
+model PoemScan {
+  poemId    String
+  scanId    String
+  pageOrder Int    @default(0)
+  poem      Poem   @relation(fields: [poemId], references: [id], onDelete: Cascade)
+  scan      Scan   @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@id([poemId, scanId])
+  @@map("poem_scans")
+}
+
+/// Opus-generated explanatory footnotes.
+model Footnote {
+  id        String  @id @default(uuid())
+  poemId    String
+  poem      Poem    @relation(fields: [poemId], references: [id], onDelete: Cascade)
+  anchor    String?
+  note      String
+  sortOrder Int     @default(0)
+
+  @@map("footnotes")
+}
+
+/// Scribbles/edits/strike-throughs on the page.
+model Marginalia {
+  id          String  @id @default(uuid())
+  poemId      String
+  poem        Poem    @relation(fields: [poemId], references: [id], onDelete: Cascade)
+  kind        String? // insertion|strikethrough|correction|side_note|doodle|other
+  text        String?
+  translation String?
+  sortOrder   Int     @default(0)
+
+  @@map("marginalia")
+}
+
+/// Controlled tag vocabulary (themes + structural flags).
+model Tag {
+  id       String    @id @default(uuid())
+  slug     String    @unique
+  label    String?
+  kind     String? // 'theme' | 'structural'
+  poemTags PoemTag[]
+
+  @@map("tags")
+}
+
+model PoemTag {
+  poemId String
+  tagId  String
+  poem   Poem   @relation(fields: [poemId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([poemId, tagId])
+  @@map("poem_tags")
+}
+
+/// PRIVATE — unresolved references to (living) family. Never exposed publicly.
+model PoemMention {
+  id            String  @id @default(uuid())
+  poemId        String
+  poem          Poem    @relation(fields: [poemId], references: [id], onDelete: Cascade)
+  relationship  String? // 'daughter', 'grandchild', 'wife', 'in-law'
+  nameAsWritten String?
+  lifeEvent     String? // 'divorce', 'marriage', 'illness', ...
+
+  @@map("poem_mentions")
+}
+
+/// Candidate "this poem is a version of that poem" pairs (reused-line detection).
+model PoemRelation {
+  id          String  @id @default(uuid())
+  poemAId     String
+  poemBId     String
+  poemA       Poem    @relation("relFrom", fields: [poemAId], references: [id], onDelete: Cascade)
+  poemB       Poem    @relation("relTo", fields: [poemBId], references: [id], onDelete: Cascade)
+  sharedLines Int     @default(0)
+  relation    String? // 'possible-version'
+
+  @@map("poem_relations")
+}
+
+/// Voice/text edit suggestions from the poem page (admin-reviewed).
+model EditSuggestion {
+  id            String   @id @default(uuid())
+  poemId        String?
+  poem          Poem?    @relation(fields: [poemId], references: [id], onDelete: SetNull)
+  scanId        String?
+  poemIndex     Int?
+  lineIndex     Int?
+  originalText  String?
+  selectedText  String?
+  suggestedText String?
+  spokenText    String?
+  status        String   @default("pending") // pending | accepted | rejected
+  submittedBy   String? // Cognito user id (later)
+  createdAt     DateTime @default(now())
+
+  @@map("edit_suggestions")
+}

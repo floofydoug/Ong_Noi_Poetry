@@ -71,14 +71,22 @@ PRIVATE: `poem_mentions`, `poem_relations` (versions). RLS: public reads only
 
 ## Stack
 
-Next.js static export → **GitHub Pages** (custom domain + free HTTPS — decided; not AWS/Netlify);
-Supabase Postgres + Storage (+ Auth in v2); Python `.venv` for the transcription pipeline;
-Playwright for QA. The interactive app (TipTap, Web Speech, Supabase client) is all client-side,
-so a static export works.
+**Full AWS hosted — DECIDED (pivot away from Supabase + GitHub Pages).** Reasons: ~4 GB of scans →
+S3, single cloud, admin access to provision.
+- **App:** Next.js (SSR + API routes) on **AWS Amplify Hosting** (connected to the GitHub repo).
+- **DB:** **RDS PostgreSQL** via **Prisma** (`web/prisma/schema.prisma` + migrations).
+- **Files:** **S3** (originals + web derivatives) served via **CloudFront**.
+- **Auth:** **Cognito** user pool (admin vs guest roles) — not Auth0/Supabase.
+- **DNS:** **Route 53** — `thanhphung.com` registered → will point at Amplify/CloudFront.
+- Python `.venv` = transcription pipeline; Playwright = QA.
 
-**Deploy gotcha:** the CI build has NO access to the private transcription JSON (gitignored), so
-production must pull poem data **from Supabase (verified + public)** at build time. The current
-local-JSON path in `web/lib/poems.ts` is dev-only. → Supabase is the prerequisite for deploying.
+GitHub Pages is **no longer the host** (Prisma needs a server); the repo stays on GitHub for code/CI.
+Modest always-on cost (small RDS ~$12–15/mo). AWS CLI profile: **`claude-dev`** (admin) — see the
+`aws-dns-setup` memory. Supabase is dropped (the `web/lib/supabaseClient.ts` / `supabase.sql` bits
+are legacy until removed).
+
+**Build order:** ① Prisma schema (done) → ② provision RDS + migrate → ③ app data layer = API routes
+over Prisma → ④ S3 + CloudFront for images → ⑤ Cognito auth → ⑥ deploy to Amplify + custom domain.
 
 ## Constraints & gotchas
 
