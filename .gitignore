@@ -34,3 +34,6 @@ web/*.tsbuildinfo
 # python cache
 __pycache__/
 *.pyc
+
+# personal Claude Code settings
+.claude/settings.local.json
