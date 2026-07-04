@@ -10,9 +10,14 @@ export function getScans(): Scan[] {
   const files = fs.readdirSync(DIR).filter((f) => f.endsWith(".json")).sort();
   return files.map((f) => {
     const d = JSON.parse(fs.readFileSync(path.join(DIR, f), "utf8"));
+    const m = d._meta || {};
+    // Supports both the old per-scan format (scan_id) and the new grouped format
+    // (group + scan_ids, where A/B/C pages are analyzed together).
+    const scanId: string = m.scan_id ?? m.group;
+    const filename: string = m.original_filename ?? (m.scan_ids || []).join(", ") ?? m.group;
     return {
-      scanId: d._meta.scan_id as string,
-      filename: (d._meta.original_filename as string) || "",
+      scanId,
+      filename,
       poems: d.poems || [],
       pageNotes: d.page_notes ?? null,
     };

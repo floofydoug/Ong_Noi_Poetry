@@ -6,8 +6,15 @@ const SENS: Record<string, number> = { none: 0, low: 1, medium: 2, high: 3 };
 
 function yearOf(scan: Scan): string | null {
   for (const p of scan.poems) {
-    const m = (p.date_text || "").match(/\b(19|20)\d{2}\b/);
-    if (m) return m[0];
+    const d = p.date_text || "";
+    const m4 = d.match(/\b(19|20)\d{2}\b/);
+    if (m4) return m4[0];
+    // date like DD-MM-YY / D/M/YY → 2-digit year (e.g. 13-04-18 → 2018)
+    const m2 = d.match(/\b\d{1,2}[-/]\d{1,2}[-/](\d{2})\b/);
+    if (m2) {
+      const yy = parseInt(m2[1], 10);
+      return String(yy <= 40 ? 2000 + yy : 1900 + yy);
+    }
   }
   return null;
 }

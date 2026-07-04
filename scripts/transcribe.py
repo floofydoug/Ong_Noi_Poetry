@@ -1,269 +1,239 @@
 #!/usr/bin/env python3
-"""AI/OCR transcription of grandfather's poem scans.
+"""AI analysis of the poem scans — grouped by sitting, via the Batch API.
 
-Reads data/originals-manifest.csv, preprocesses each TIF (auto-orient + grayscale
-+ contrast boost + downscale), sends it to Claude vision, and writes one JSON
-draft per scan to data/transcriptions/. Resumable: skips scans already done.
+- Groups A/B/C continuation pages of one sitting into a SINGLE multi-image request
+  (so poems that span pages aren't split). Duplicate-numbered scans stay separate.
+- Uses the Anthropic Message Batches API (50% cheaper, offline-friendly).
+- Logs parse/validation errors per request instead of crashing the run.
+- Reports wall-clock timing + token usage, and extrapolates to all 298 groups.
 
-Per-scan metadata is the source of truth — title/date/place/author are written on
-each page. A page may hold MULTIPLE poems (e.g. Set 102), so the model returns an
-array. It does NOT guess themed-set membership (a human assigns that during review).
+Output: data/transcriptions/<group>.json  — the IMMUTABLE analysis for that sitting
+(raw model output + provenance). One file per group; resumable (skips done groups).
 
-Setup:
-    pip install anthropic pillow
-    export ANTHROPIC_API_KEY=sk-ant-...
-Run:
-    python3 scripts/transcribe.py --limit 5      # try a handful first
-    python3 scripts/transcribe.py                # full run
+Setup:  pip install anthropic pillow ; export ANTHROPIC_API_KEY=...
+Run:    python3 scripts/transcribe.py --limit 5
 """
-import argparse, base64, csv, io, json, os, sys, time
+import argparse, base64, collections, csv, datetime, hashlib, io, json, os, re, sys, time
 
 MANIFEST = "/Users/doug/ongs_poems/data/originals-manifest.csv"
 ORIGINALS = "/Users/doug/ongs_poems/originals"
 OUT_DIR = "/Users/doug/ongs_poems/data/transcriptions"
+ERR_LOG = "/Users/doug/ongs_poems/data/analysis-errors.log"
 MODEL = "claude-opus-4-8"
-MAX_EDGE = 2200  # px; Opus 4.8 supports up to 2576 — keep headroom, control cost
+PROMPT_VERSION = "3-grouped"
+MAX_EDGE = 2200
+TOTAL_GROUPS = 298  # for extrapolation (from the manifest)
 
 SYSTEM = (
     "You transcribe scanned, handwritten Vietnamese poems by a single author. "
     "Preserve EXACT Vietnamese diacritics and line breaks. Do not translate, "
     "modernize, or correct spelling. Mark any unreadable character as [?] and "
-    "list those fragments in uncertain_spans. The page may be rotated or faint. "
-    "A single page usually contains SEVERAL distinct poems — segment them all."
+    "list those fragments in uncertain_spans. Pages may be rotated or faint. "
+    "A page usually contains SEVERAL distinct poems — segment them all."
 )
 
-# Structured-output schema: one page -> array of poems.
+# (schema identical to the per-poem structure we settled on)
 SCHEMA = {
-    "type": "object",
-    "additionalProperties": False,
+    "type": "object", "additionalProperties": False,
     "required": ["poems", "page_notes"],
     "properties": {
-        "poems": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["title", "title_vi", "date_text", "place",
-                             "author", "lines", "tags", "marginalia",
-                             "footnotes", "boundary_reason", "boundary_confidence",
-                             "mentions", "sensitivity", "visibility",
-                             "confidence", "uncertain_spans", "notes"],
-                "properties": {
-                    "title": {"type": ["string", "null"],
-                              "description": "Title as written (may be English or Vietnamese); null if untitled"},
-                    "title_vi": {"type": ["string", "null"],
-                                 "description": "Vietnamese title with full diacritics, if present"},
-                    "date_text": {"type": ["string", "null"],
-                                  "description": "Date exactly as written, e.g. '08-09-2018'"},
-                    "place": {"type": ["string", "null"],
-                              "description": "Place written on the page, e.g. 'Everett', 'Lake Jackson'"},
-                    "author": {"type": ["string", "null"],
-                               "description": "Signature/initials, e.g. 'Thanh-Phụng' or 'T.P.'"},
-                    "lines": {
-                        "type": "array",
-                        "description": "Ordered poem lines; each Vietnamese line paired with a faithful line-by-line English translation. Empty vi+en marks a stanza break.",
-                        "items": {
-                            "type": "object",
-                            "additionalProperties": False,
-                            "required": ["vi", "en"],
-                            "properties": {
-                                "vi": {"type": "string", "description": "One line of Vietnamese, exact diacritics; '' for a stanza break; mark unreadable chars [?]"},
-                                "en": {"type": "string", "description": "Faithful, natural English translation of this same line; '' for a stanza break"},
-                            },
-                        },
-                    },
-                    "tags": {
-                        "type": "array",
-                        "description": "3-8 lowercase-kebab tags: themes/motifs (e.g. 'home', 'exile', 'family', 'faith', 'aging', 'gratitude', 'vietnam') AND structural flags (e.g. 'untitled', 'has-strikethrough', 'has-marginalia', 'bilingual-title').",
-                        "items": {"type": "string"},
-                    },
-                    "marginalia": {
-                        "type": "array",
-                        "description": "Every scribble, edit, or mark on the page that is NOT part of the clean poem text.",
-                        "items": {
-                            "type": "object",
-                            "additionalProperties": False,
-                            "required": ["kind", "text", "translation"],
-                            "properties": {
-                                "kind": {"type": "string",
-                                         "enum": ["insertion", "strikethrough", "correction",
-                                                  "side_note", "doodle", "other"]},
-                                "text": {"type": "string", "description": "The mark transcribed (Vietnamese, exact diacritics; [?] if unreadable)"},
-                                "translation": {"type": ["string", "null"], "description": "English translation, or null if not text"},
-                            },
-                        },
-                    },
-                    "footnotes": {
-                        "type": "array",
-                        "description": "Explanatory footnotes ONLY where you genuinely understand something worth noting — a cultural/religious reference, the meaning of an edit, an idiom, or a likely reading of an unclear word. Omit if you'd just be guessing.",
-                        "items": {
-                            "type": "object",
-                            "additionalProperties": False,
-                            "required": ["anchor", "note"],
-                            "properties": {
-                                "anchor": {"type": "string", "description": "The exact Vietnamese word/phrase/line the note refers to"},
-                                "note": {"type": "string", "description": "Concise English explanation"},
-                            },
-                        },
-                    },
-                    "boundary_reason": {"type": "string",
-                                        "enum": ["title", "signature", "separator", "gap", "only-poem"],
-                                        "description": "What marks this as its own poem on the page"},
-                    "boundary_confidence": {"type": "string", "enum": ["high", "medium", "low"]},
-                    "mentions": {
-                        "type": "array",
-                        "description": "PRIVATE. People the poem refers to. Do NOT guess real identities.",
-                        "items": {
-                            "type": "object",
-                            "additionalProperties": False,
-                            "required": ["relationship", "name_as_written", "life_event"],
-                            "properties": {
-                                "relationship": {"type": ["string", "null"], "description": "e.g. 'daughter', 'grandchild', 'wife', 'in-law'"},
-                                "name_as_written": {"type": ["string", "null"], "description": "Name/initials exactly as written, or null"},
-                                "life_event": {"type": ["string", "null"], "description": "e.g. 'divorce', 'marriage', 'illness', 'emigration', 'death'"},
-                            },
-                        },
-                    },
-                    "sensitivity": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "required": ["level", "reason"],
-                        "description": "How sensitive for LIVING family; raise for divorce/conflict/illness.",
-                        "properties": {
-                            "level": {"type": "string", "enum": ["none", "low", "medium", "high"]},
-                            "reason": {"type": ["string", "null"]},
-                        },
-                    },
-                    "visibility": {"type": "string", "enum": ["public", "family", "private"],
-                                   "description": "Suggested default; use 'family' for sensitive content about the living"},
-                    "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
-                    "uncertain_spans": {"type": "array", "items": {"type": "string"}},
-                    "notes": {"type": ["string", "null"]},
-                },
-            },
-        },
-        "page_notes": {"type": ["string", "null"],
-                       "description": "Page-level observations (rotation, damage, table-of-contents, etc.)"},
+        "poems": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False,
+            "required": ["title", "title_vi", "date_text", "place", "author", "lines",
+                         "tags", "marginalia", "footnotes", "boundary_reason",
+                         "boundary_confidence", "mentions", "sensitivity", "visibility",
+                         "confidence", "uncertain_spans", "notes"],
+            "properties": {
+                "title": {"type": ["string", "null"]},
+                "title_vi": {"type": ["string", "null"]},
+                "date_text": {"type": ["string", "null"]},
+                "place": {"type": ["string", "null"]},
+                "author": {"type": ["string", "null"]},
+                "lines": {"type": "array", "items": {
+                    "type": "object", "additionalProperties": False,
+                    "required": ["vi", "en"],
+                    "properties": {"vi": {"type": "string"}, "en": {"type": "string"}}}},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "marginalia": {"type": "array", "items": {
+                    "type": "object", "additionalProperties": False,
+                    "required": ["kind", "text", "translation"],
+                    "properties": {
+                        "kind": {"type": "string", "enum": ["insertion", "strikethrough",
+                                 "correction", "side_note", "doodle", "other"]},
+                        "text": {"type": "string"},
+                        "translation": {"type": ["string", "null"]}}}},
+                "footnotes": {"type": "array", "items": {
+                    "type": "object", "additionalProperties": False,
+                    "required": ["anchor", "note"],
+                    "properties": {"anchor": {"type": "string"}, "note": {"type": "string"}}}},
+                "boundary_reason": {"type": "string",
+                    "enum": ["title", "signature", "separator", "gap", "only-poem"]},
+                "boundary_confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+                "mentions": {"type": "array", "items": {
+                    "type": "object", "additionalProperties": False,
+                    "required": ["relationship", "name_as_written", "life_event"],
+                    "properties": {
+                        "relationship": {"type": ["string", "null"]},
+                        "name_as_written": {"type": ["string", "null"]},
+                        "life_event": {"type": ["string", "null"]}}}},
+                "sensitivity": {"type": "object", "additionalProperties": False,
+                    "required": ["level", "reason"],
+                    "properties": {"level": {"type": "string", "enum": ["none", "low", "medium", "high"]},
+                                   "reason": {"type": ["string", "null"]}}},
+                "visibility": {"type": "string", "enum": ["public", "family", "private"]},
+                "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+                "uncertain_spans": {"type": "array", "items": {"type": "string"}},
+                "notes": {"type": ["string", "null"]},
+            }}},
+        "page_notes": {"type": ["string", "null"]},
     },
 }
 
 USER_TEXT = (
-    "Transcribe every poem on this page. Return an array — one entry per distinct "
-    "poem. For each: extract any title, date, place, and author signature written "
-    "on the page (null if absent). Then give `lines`: an ordered array where each "
-    "entry has `vi` (one line of the Vietnamese, EXACT diacritics) and `en` (a "
-    "faithful, natural English translation of that same line). Use an empty "
-    "{vi:'', en:''} entry to mark a stanza break. Mark unreadable Vietnamese "
-    "characters as [?] and list them in uncertain_spans. Do not guess which set "
-    "(sitting) this belongs to.\n\n"
-    "SEGMENTATION — a single page very often holds SEVERAL distinct poems; return ALL "
-    "of them as separate array entries. Start a NEW poem at: a new title, a new "
-    "signature/date (e.g. another 'T.P.' + place), or a clear separator (a drawn rule, "
-    "a large blank gap, or '· · ·'). A plain stanza/line break is NOT by itself a new "
-    "poem — keep stanzas of one poem together. When a boundary is ambiguous, PREFER "
-    "splitting and set boundary_confidence='low'. Set boundary_reason on every poem.\n\n"
-    "PRIVATE metadata: in `mentions`, list family members the poem refers to "
-    "(relationship, name-as-written, life-event) WITHOUT guessing real identities. Set "
-    "`sensitivity` (raise it for divorce, family conflict, or illness involving living "
-    "people) and a suggested `visibility` ('family' when sensitive, else 'public').\n\n"
-    "ALSO capture everything else on the page: every scribble, struck-through word, "
-    "inserted word/caret, correction, side-note, or doodle goes in `marginalia` "
-    "(with its kind). Assign 3-8 `tags` (themes + structural flags). Add `footnotes` "
-    "only where you genuinely understand something worth explaining (a cultural or "
-    "religious reference, what an edit changed, an idiom, a likely reading of an "
-    "unclear word) — omit footnotes you would only be guessing at."
+    "The image(s) below are consecutive pages of ONE sitting, in order. A poem may "
+    "continue from one page onto the next — treat continued text as the SAME poem. "
+    "Transcribe EVERY poem across ALL pages, returning one array entry per distinct poem.\n\n"
+    "For each poem: extract any title, date, place, and author signature (null if absent). "
+    "Give `lines`: an ordered array of {vi, en} — `vi` is one line of Vietnamese with EXACT "
+    "diacritics, `en` a faithful English translation of that line; empty {vi:'',en:''} marks a "
+    "stanza break. Mark unreadable chars [?] and list them in uncertain_spans.\n\n"
+    "Start a NEW poem only at a new title, a new signature/date, or a clear separator — not at "
+    "a mere stanza break; when unsure prefer splitting with boundary_confidence='low'. Set "
+    "boundary_reason on every poem.\n\n"
+    "Capture every scribble/edit/strike-through/doodle in `marginalia`; assign 3-8 `tags`; add "
+    "`footnotes` only where you genuinely understand something worth explaining. In `mentions` "
+    "list family members referenced (relationship, name-as-written, life-event) WITHOUT guessing "
+    "identities; set `sensitivity` (raise for divorce/conflict/illness about the living) and a "
+    "suggested `visibility` ('family' when sensitive, else 'public'). Do not guess set membership."
 )
 
 
-def preprocess(path: str) -> bytes:
-    """Auto-orient, grayscale, boost contrast, downscale -> PNG bytes."""
+def group_id(scan_id):
+    m = re.match(r"^(set-\d+)([a-z])?(-.*)?$", scan_id)
+    base, letter, suffix = m.groups()
+    return scan_id if suffix else base
+
+
+def preprocess(filename):
     from PIL import Image, ImageOps
-    img = Image.open(path)
-    img = ImageOps.exif_transpose(img)        # honor EXIF rotation
-    img = img.convert("L")                     # grayscale
-    img = ImageOps.autocontrast(img, cutoff=1)  # lift faint pencil
+    img = Image.open(os.path.join(ORIGINALS, filename))
+    img = ImageOps.exif_transpose(img).convert("L")
+    img = ImageOps.autocontrast(img, cutoff=1)
     w, h = img.size
-    scale = MAX_EDGE / max(w, h)
-    if scale < 1:
-        img = img.resize((round(w * scale), round(h * scale)), Image.LANCZOS)
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return buf.getvalue()
+    s = MAX_EDGE / max(w, h)
+    if s < 1:
+        img = img.resize((round(w * s), round(h * s)), Image.LANCZOS)
+    buf = io.BytesIO(); img.save(buf, format="PNG"); return buf.getvalue()
 
 
-def load_manifest():
-    with open(MANIFEST, newline="") as f:
-        return list(csv.DictReader(f))
+def load_groups():
+    rows = list(csv.DictReader(open(MANIFEST)))
+    groups = collections.defaultdict(list)
+    for r in rows:
+        groups[group_id(r["scan_id"])].append(r)
+    # order pages within a group (base before A/B/C), and groups by id
+    for g in groups.values():
+        g.sort(key=lambda r: r["scan_id"])
+    return dict(sorted(groups.items()))
 
 
-def transcribe_one(client, row):
-    png = preprocess(os.path.join(ORIGINALS, row["original_filename"]))
-    b64 = base64.standard_b64encode(png).decode()
-    resp = client.messages.create(
-        model=MODEL,
-        max_tokens=4096,
-        system=SYSTEM,
-        output_config={"format": {"type": "json_schema", "schema": SCHEMA}},
-        messages=[{
-            "role": "user",
-            "content": [
-                {"type": "image", "source": {"type": "base64",
-                                             "media_type": "image/png", "data": b64}},
-                {"type": "text", "text": USER_TEXT},
-            ],
-        }],
-    )
-    text = next(b.text for b in resp.content if b.type == "text")
-    data = json.loads(text)
-    data["_meta"] = {
-        "scan_id": row["scan_id"],
-        "original_filename": row["original_filename"],
-        "set_number": row["set_number"],
-        "page": row["page"],
-        "manifest_note": row["note"],
-        "model": MODEL,
-        "status": "needs_review",
-        "input_tokens": resp.usage.input_tokens,
-        "output_tokens": resp.usage.output_tokens,
-    }
-    return data
+def log_err(msg):
+    with open(ERR_LOG, "a") as f:
+        f.write(f"{datetime.datetime.now().isoformat()}  {msg}\n")
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--limit", type=int, help="process at most N scans")
-    ap.add_argument("--only", help="single scan_id to (re)process")
-    ap.add_argument("--force", action="store_true", help="redo even if output exists")
+    ap.add_argument("--limit", type=int, default=5, help="number of groups to process")
+    ap.add_argument("--poll", type=int, default=15, help="seconds between batch status polls")
     args = ap.parse_args()
-
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        sys.exit("Set ANTHROPIC_API_KEY first (export ANTHROPIC_API_KEY=sk-ant-...)")
+        sys.exit("Set ANTHROPIC_API_KEY first")
     import anthropic
+    from anthropic.types.message_create_params import MessageCreateParamsNonStreaming
+    from anthropic.types.messages.batch_create_params import Request
     client = anthropic.Anthropic()
     os.makedirs(OUT_DIR, exist_ok=True)
 
-    rows = load_manifest()
-    if args.only:
-        rows = [r for r in rows if r["scan_id"] == args.only]
-    done = skipped = 0
-    for row in rows:
-        out = os.path.join(OUT_DIR, f"{row['scan_id']}.json")
-        if os.path.exists(out) and not args.force:
-            skipped += 1
-            continue
-        if args.limit and done >= args.limit:
+    groups = load_groups()
+    todo = [(g, rows) for g, rows in groups.items()
+            if not os.path.exists(os.path.join(OUT_DIR, f"{g}.json"))][: args.limit]
+    if not todo:
+        print("Nothing to do — all selected groups already analyzed."); return
+    done_count = sum(1 for g in groups if os.path.exists(os.path.join(OUT_DIR, f"{g}.json")))
+    print(f"Groups total={len(groups)}  done={done_count}  running now={len(todo)}\n")
+
+    # Build one batch request per group (multi-image).
+    reqs, meta = [], {}
+    for g, rows in todo:
+        imgs = [preprocess(r["original_filename"]) for r in rows]
+        sha = hashlib.sha256(b"".join(imgs)).hexdigest()[:16]
+        content = [{"type": "image", "source": {"type": "base64", "media_type": "image/png",
+                    "data": base64.standard_b64encode(b).decode()}} for b in imgs]
+        content.append({"type": "text", "text": USER_TEXT})
+        reqs.append(Request(custom_id=g, params=MessageCreateParamsNonStreaming(
+            model=MODEL, max_tokens=8000, system=SYSTEM,
+            output_config={"format": {"type": "json_schema", "schema": SCHEMA}},
+            messages=[{"role": "user", "content": content}])))
+        meta[g] = {"scan_ids": [r["scan_id"] for r in rows], "pages": len(rows), "images_sha": sha}
+        print(f"  queued {g}  ({len(rows)} page{'s' if len(rows) > 1 else ''})")
+
+    print("\nSubmitting batch…")
+    t0 = time.time()
+    batch = client.messages.batches.create(requests=reqs)
+    print(f"  batch {batch.id} — polling every {args.poll}s")
+    while True:
+        b = client.messages.batches.retrieve(batch.id)
+        c = b.request_counts
+        if b.processing_status == "ended":
             break
+        print(f"  … {b.processing_status}: processing={c.processing} succeeded={c.succeeded} errored={c.errored}")
+        time.sleep(args.poll)
+    elapsed = time.time() - t0
+    print(f"  ended in {elapsed:.0f}s\n")
+
+    tin = tout = ok = fail = 0
+    for r in client.messages.batches.results(batch.id):
+        g = r.custom_id
+        if r.result.type != "succeeded":
+            fail += 1; log_err(f"{g}: batch result {r.result.type}"); print(f"  ✗ {g}: {r.result.type}"); continue
+        msg = r.result.message
         try:
-            data = transcribe_one(client, row)
-            with open(out, "w") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            n = len(data.get("poems", []))
-            print(f"✓ {row['scan_id']}: {n} poem(s)")
-            done += 1
-        except Exception as e:  # keep going; rerun picks up failures
-            print(f"✗ {row['scan_id']}: {e}", file=sys.stderr)
-        time.sleep(0.2)  # gentle pacing
-    print(f"\nDone. transcribed={done} skipped(existing)={skipped}")
+            text = next(blk.text for blk in msg.content if blk.type == "text")
+            data = json.loads(text)
+            if "poems" not in data:
+                raise ValueError("missing 'poems'")
+        except Exception as e:
+            fail += 1
+            log_err(f"{g}: parse error: {e} :: {(text[:300] if 'text' in dir() else '')!r}")
+            print(f"  ✗ {g}: parse error ({e})"); continue
+        ui, uo = msg.usage.input_tokens, msg.usage.output_tokens
+        tin += ui; tout += uo; ok += 1
+        data["_meta"] = {
+            "group": g, **meta[g], "model": MODEL, "prompt_version": PROMPT_VERSION,
+            "input_tokens": ui, "output_tokens": uo, "batch_id": batch.id,
+            "analyzed_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "status": "needs_review",
+        }
+        with open(os.path.join(OUT_DIR, f"{g}.json"), "w") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        n = len(data.get("poems", []))
+        print(f"  ✓ {g}: {n} poem(s)  in/out={ui}/{uo}")
+
+    # ---- report ----
+    billed = (tin * 5 + tout * 25) / 1e6 * 0.5  # batch = 50% off
+    print(f"\n=== run report ===")
+    print(f"  groups ok={ok} fail={fail}  wall-clock={elapsed:.0f}s")
+    print(f"  tokens: in={tin:,} out={tout:,}  billed≈${billed:.3f} (Batch API, 50% off)")
+    if ok:
+        avg_in, avg_out = tin / ok, tout / ok
+        full = (avg_in * 5 + avg_out * 25) / 1e6 * 0.5 * TOTAL_GROUPS
+        print(f"  per-group avg: in={avg_in:.0f} out={avg_out:.0f}")
+        print(f"  EXTRAPOLATION to all {TOTAL_GROUPS} groups: ≈${full:.2f} billed")
+        print(f"    (time: Batch API runs requests in parallel — a single {TOTAL_GROUPS}-group batch")
+        print(f"     typically finishes well under an hour, NOT {elapsed/ok*TOTAL_GROUPS/60:.0f} min linearly)")
+    if fail:
+        print(f"  see {ERR_LOG} for failures")
 
 
 if __name__ == "__main__":
