@@ -71,8 +71,14 @@ PRIVATE: `poem_mentions`, `poem_relations` (versions). RLS: public reads only
 
 ## Stack
 
-Next.js static export → GitHub Pages (`basePath` for repo pages); Supabase Postgres + Storage
-(+ Auth in v2); Python `.venv` for the transcription pipeline; Playwright for QA.
+Next.js static export → **GitHub Pages** (custom domain + free HTTPS — decided; not AWS/Netlify);
+Supabase Postgres + Storage (+ Auth in v2); Python `.venv` for the transcription pipeline;
+Playwright for QA. The interactive app (TipTap, Web Speech, Supabase client) is all client-side,
+so a static export works.
+
+**Deploy gotcha:** the CI build has NO access to the private transcription JSON (gitignored), so
+production must pull poem data **from Supabase (verified + public)** at build time. The current
+local-JSON path in `web/lib/poems.ts` is dev-only. → Supabase is the prerequisite for deploying.
 
 ## Constraints & gotchas
 
