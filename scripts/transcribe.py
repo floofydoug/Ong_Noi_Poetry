@@ -18,7 +18,7 @@ import argparse, base64, collections, csv, datetime, hashlib, io, json, os, re, 
 MANIFEST = "/Users/doug/ongs_poems/data/originals-manifest.csv"
 ORIGINALS = "/Users/doug/ongs_poems/originals"
 OUT_DIR = "/Users/doug/ongs_poems/data/transcriptions"
-ERR_LOG = "/Users/doug/ongs_poems/data/analysis-errors.log"
+ERR_JSON = "/Users/doug/ongs_poems/data/analysis-errors.json"
 MODEL = "claude-opus-4-8"
 PROMPT_VERSION = "3-grouped"
 MAX_EDGE = 2200
@@ -137,9 +137,17 @@ def load_groups():
     return dict(sorted(groups.items()))
 
 
-def log_err(msg):
-    with open(ERR_LOG, "a") as f:
-        f.write(f"{datetime.datetime.now().isoformat()}  {msg}\n")
+def log_err(rec):
+    """Append a structured error record to data/analysis-errors.json."""
+    rec = {"timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(), **rec}
+    errs = []
+    if os.path.exists(ERR_JSON):
+        try:
+            errs = json.load(open(ERR_JSON))
+        except Exception:
+            errs = []
+    errs.append(rec)
+    json.dump(errs, open(ERR_JSON, "w"), ensure_ascii=False, indent=2)
 
 
 def main():
@@ -196,7 +204,11 @@ def main():
     for r in client.messages.batches.results(batch.id):
         g = r.custom_id
         if r.result.type != "succeeded":
-            fail += 1; log_err(f"{g}: batch result {r.result.type}"); print(f"  ✗ {g}: {r.result.type}"); continue
+            fail += 1
+            err = getattr(getattr(r.result, "error", None), "type", None)
+            log_err({"group": g, "scan_ids": meta[g]["scan_ids"], "kind": "batch_result",
+                     "result_type": r.result.type, "error": err, "batch_id": batch.id})
+            print(f"  ✗ {g}: {r.result.type}"); continue
         msg = r.result.message
         try:
             text = next(blk.text for blk in msg.content if blk.type == "text")
@@ -205,7 +217,9 @@ def main():
                 raise ValueError("missing 'poems'")
         except Exception as e:
             fail += 1
-            log_err(f"{g}: parse error: {e} :: {(text[:300] if 'text' in dir() else '')!r}")
+            log_err({"group": g, "scan_ids": meta[g]["scan_ids"], "kind": "parse_error",
+                     "error": str(e), "raw_snippet": (text[:400] if "text" in dir() else ""),
+                     "stop_reason": getattr(msg, "stop_reason", None), "batch_id": batch.id})
             print(f"  ✗ {g}: parse error ({e})"); continue
         ui, uo = msg.usage.input_tokens, msg.usage.output_tokens
         tin += ui; tout += uo; ok += 1
@@ -233,7 +247,7 @@ def main():
         print(f"    (time: Batch API runs requests in parallel — a single {TOTAL_GROUPS}-group batch")
         print(f"     typically finishes well under an hour, NOT {elapsed/ok*TOTAL_GROUPS/60:.0f} min linearly)")
     if fail:
-        print(f"  see {ERR_LOG} for failures")
+        print(f"  {fail} failure(s) logged to {ERR_JSON}")
 
 
 if __name__ == "__main__":

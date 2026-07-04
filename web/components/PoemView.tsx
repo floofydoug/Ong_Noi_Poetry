@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { Fragment, useEffect, useState } from "react";
-import type { Scan, Suggestion } from "@/lib/types";
+import { Fragment, useEffect, useRef, useState } from "react";
+import type { Scan, Suggestion, Line } from "@/lib/types";
 import { listSuggestions, saveSuggestion } from "@/lib/suggestions";
 import { useSpeech } from "@/lib/useSpeech";
 import EditableLine from "./EditableLine";
@@ -17,6 +17,42 @@ function markUnc(text: string): React.ReactNode[] {
   const parts = (text || "").split("[?]");
   return parts.flatMap((p, i) =>
     i === 0 ? [p] : [<span key={i} className="unc">[?]</span>, p]
+  );
+}
+
+// Mobile-only: Vietnamese / English tabs you can swipe between (scroll down for the scan).
+function MobileLines({ lines }: { lines: Line[] }) {
+  const [lang, setLang] = useState<"vi" | "en">("vi");
+  const startX = useRef(0);
+  return (
+    <div className="mobile-lines">
+      <div className="langtabs">
+        <button className={`langtab ${lang === "vi" ? "active" : ""}`} onClick={() => setLang("vi")}>
+          Tiếng Việt
+        </button>
+        <button className={`langtab ${lang === "en" ? "active" : ""}`} onClick={() => setLang("en")}>
+          English
+        </button>
+      </div>
+      <div
+        className={`lang-pane ${lang}`}
+        onTouchStart={(e) => { startX.current = e.touches[0].clientX; }}
+        onTouchEnd={(e) => {
+          const dx = e.changedTouches[0].clientX - startX.current;
+          if (dx < -50) setLang("en");
+          else if (dx > 50) setLang("vi");
+        }}
+      >
+        {lines.map((L, i) =>
+          !L.vi && !L.en ? (
+            <div key={i} className="stanza-gap" />
+          ) : (
+            <div key={i} className="row">{markUnc(lang === "vi" ? L.vi : L.en)}</div>
+          )
+        )}
+      </div>
+      <div className="lang-hint">← swipe to switch language →</div>
+    </div>
   );
 }
 
@@ -68,7 +104,7 @@ export default function PoemView({ scan, imageUrl }: { scan: Scan; imageUrl: str
               {[p.date_text, p.place, p.author].filter(Boolean).join(" · ")}
             </p>
 
-            <div className="lines">
+            <div className="lines desktop">
               {p.lines.map((L, li) => {
                 if (!L.vi && !L.en) return <div key={li} className="stanza-gap" />;
                 const hasSug = sugKeys.has(`${pi}:${li}`);
@@ -91,6 +127,8 @@ export default function PoemView({ scan, imageUrl }: { scan: Scan; imageUrl: str
                 );
               })}
             </div>
+
+            <MobileLines lines={p.lines} />
 
             {p.footnotes?.length > 0 && (
               <div className="notes-block">
