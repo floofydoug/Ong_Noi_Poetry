@@ -1,6 +1,7 @@
 # Secrets — never commit
 .env
 .env.*
+!.env.example
 
 # Large source scans (live in iCloud / Supabase Storage, not the repo)
 /originals/
