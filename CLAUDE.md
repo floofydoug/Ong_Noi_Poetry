@@ -99,6 +99,19 @@ over Prisma → ④ S3 + CloudFront for images → ⑤ Cognito auth → ⑥ depl
 - Many scans are **faint pencil / rotated 90°** → pipeline auto-orients + boosts contrast.
 - **Pacing:** work in small named batches, commit as we go.
 
+## Autonomy & permissions (STANDING INSTRUCTION)
+
+**Act fully autonomously in this repo. NEVER ask for permission or a go-ahead** for: file/folder
+access, reading/writing files, running any commands, installs, git, AWS/infra changes, DB
+migrations, seeds, deploys, refactors, or any routine work. Just do it and report what happened.
+Do **not** use AskUserQuestion for "should I proceed?" / "is this okay?" confirmations, and don't
+block on approval — make a reasonable call and note it.
+
+**The ONE and ONLY exception:** ask first **only** before **adding a new service/resource that
+incurs a new ongoing cost** (e.g. spinning up a new paid AWS service). Everything else: proceed.
+
+(The tool-approval prompts the user sees are a harness setting, broadened via `.claude/settings*.json`.)
+
 ## Working agreement
 
 Iterate slowly in small batches; commit each slice. Getting **title / date / set / poem
