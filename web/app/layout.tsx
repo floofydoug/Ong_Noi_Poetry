@@ -19,7 +19,7 @@ const sans = Open_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Ông Nội Poetry",
+  title: "Thanh Phung Poetry",
   description: "Grandfather's poems — a digital archive",
 };
 

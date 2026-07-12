@@ -10,6 +10,9 @@
 # public repo. They live locally and go into Supabase (RLS-protected) instead.
 /data/transcriptions/
 /data/poem-variants.json
+# PRIVATE: real family names (fed to the OCR prompt) must never hit the public repo.
+/data/family-names.local.json
+/data/analysis-errors.json
 
 # Generated / derived
 /derivatives/
@@ -37,3 +40,15 @@ __pycache__/
 
 # personal Claude Code settings
 .claude/settings.local.json
+/data/analysis-progress.json
+/data/people.json
+/data/people-identities.json
+
+# Local deploy runbook (contains infra endpoints; repo is public)
+DEPLOY_RUNBOOK.md
+
+# transcription pipeline runtime artifacts (logs + batch metadata; not code)
+data/*.log
+data/analysis-*.json
+data/run-*.log
+data/scan-rotations.json

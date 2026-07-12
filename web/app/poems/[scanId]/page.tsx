@@ -1,18 +1,14 @@
 import { notFound } from "next/navigation";
-import { getScan, getScans } from "@/lib/poems";
+import { getScan } from "@/lib/poems";
+import { scanImage } from "@/lib/images";
 import PoemView from "@/components/PoemView";
 
-export function generateStaticParams() {
-  return getScans().map((s) => ({ scanId: s.scanId }));
-}
+// DB-backed + dynamic (no build-time static generation; renders per request from Postgres).
+export const dynamic = "force-dynamic";
 
-export default async function PoemPage({
-  params,
-}: {
-  params: Promise<{ scanId: string }>;
-}) {
+export default async function PoemPage({ params }: { params: Promise<{ scanId: string }> }) {
   const { scanId } = await params;
-  const scan = getScan(scanId);
+  const scan = await getScan(scanId);
   if (!scan) notFound();
-  return <PoemView scan={scan} imageUrl={`/scans/${scanId}.jpg`} />;
+  return <PoemView scan={scan} imageUrl={scanImage(scanId)} />;
 }

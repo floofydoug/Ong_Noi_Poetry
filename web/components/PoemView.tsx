@@ -1,10 +1,14 @@
 "use client";
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState } from "react";
-import type { Scan, Suggestion, Line } from "@/lib/types";
-import { listSuggestions, saveSuggestion } from "@/lib/suggestions";
+import type { Scan, Line } from "@/lib/types";
 import { useSpeech } from "@/lib/useSpeech";
 import EditableLine from "./EditableLine";
+import PoemTags from "./PoemTags";
+import ScanCropper from "./ScanCropper";
+import AuthNav from "./AuthNav";
+import { useAdmin } from "@/lib/useAdmin";
+import { assetUrl } from "@/lib/images";
 
 type Sel = {
   poemIndex: number;
@@ -57,20 +61,34 @@ function MobileLines({ lines }: { lines: Line[] }) {
 }
 
 export default function PoemView({ scan, imageUrl }: { scan: Scan; imageUrl: string }) {
+  const isAdmin = useAdmin(); // confidence + other internal fields are admin-only
+  const [deleted, setDeleted] = useState<Set<number>>(new Set());
   const [editMode, setEditMode] = useState(false);
-  const [sel, setSel] = useState<Sel | null>(null);
-  const [sugKeys, setSugKeys] = useState<Set<string>>(new Set());
+  const [reanalyze, setReanalyze] = useState<number | null>(null);
 
-  useEffect(() => {
-    listSuggestions(scan.scanId).then((rows) =>
-      setSugKeys(new Set(rows.filter((r) => r.status === "pending").map((r) => `${r.poemIndex}:${r.lineIndex}`)))
-    );
-  }, [scan.scanId]);
-
-  function onSaved(s: Suggestion) {
-    setSugKeys((prev) => new Set(prev).add(`${s.poemIndex}:${s.lineIndex}`));
-    setSel(null);
+  async function deletePoem(pi: number) {
+    if (!confirm("Delete this poem? (soft delete — it can be restored)")) return;
+    const r = await fetch(`/api/admin/poems/${scan.scanId}-p${pi + 1}`, { method: "DELETE" });
+    if (r.ok) setDeleted((s) => new Set(s).add(pi));
   }
+  const [sel, setSel] = useState<Sel | null>(null);
+  // per-poem overlay from the DB (current lines, unverified line-edits, pending re-analysis)
+  type Ov = { lines: Line[]; titleVi: string | null; title: string | null;
+    editedLines: Record<number, boolean>; reanalysis: { at: string; verified: boolean } | null;
+    croppedImage?: string | null };
+  const [overlay, setOverlay] = useState<Map<number, Ov>>(new Map());
+
+  async function refreshOverlay() {
+    try {
+      const d = await fetch(`/api/scans/${scan.scanId}/edits`, { cache: "no-store" }).then((r) => r.json());
+      const m = new Map<number, Ov>();
+      for (const [pi, o] of Object.entries(d.poems || {})) m.set(+pi, o as Ov);
+      setOverlay(m);
+    } catch { /* ignore */ }
+  }
+  useEffect(() => { refreshOverlay(); }, [scan.scanId]);
+
+  function onSaved() { refreshOverlay(); setSel(null); }
 
   return (
     <div className="page">
@@ -83,6 +101,7 @@ export default function PoemView({ scan, imageUrl }: { scan: Scan; imageUrl: str
         >
           {editMode ? "editing" : "suggest edits"}
         </button>
+        <AuthNav />
       </div>
 
       {editMode && (
@@ -92,25 +111,39 @@ export default function PoemView({ scan, imageUrl }: { scan: Scan; imageUrl: str
         </p>
       )}
 
-      {scan.poems.map((p, pi) => (
+      {scan.poems.map((p, pi) => {
+        const ov = overlay.get(pi);
+        const eff = (ov?.lines ?? p.lines) as Line[];
+        const re = ov?.reanalysis;
+        return (
         <Fragment key={pi}>
           {pi > 0 && <div className="divider">· · ·</div>}
-          <article className="poem">
+          {deleted.has(pi) ? (
+            <p className="poem-deleted">Poem deleted.</p>
+          ) : (
+          <article className="poem" id={`poem-${pi}`}>
             <h2>
-              {p.title_vi || p.title || "Không đề"}
-              <span className={`badge ${p.confidence}`}>{p.confidence}</span>
+              {ov?.titleVi || p.title_vi || ov?.title || p.title || "Không đề"}
+              {isAdmin && <span className={`badge ${p.confidence}`}>{p.confidence}</span>}
+              {isAdmin && <button className="poem-del" onClick={() => deletePoem(pi)} title="delete poem">delete</button>}
             </h2>
             <p className="meta">
               {[p.date_text, p.place, p.author].filter(Boolean).join(" · ")}
             </p>
+            {re && !re.verified && (
+              <p className="reanalyzed-badge">
+                ⟳ Re-analyzed {new Date(re.at).toLocaleDateString()} · <b>unverified</b> — awaiting an admin’s review
+              </p>
+            )}
 
             <div className="lines desktop">
-              {p.lines.map((L, li) => {
+              {eff.map((L, li) => {
                 if (!L.vi && !L.en) return <div key={li} className="stanza-gap" />;
-                const hasSug = sugKeys.has(`${pi}:${li}`);
+                const pending = ov?.editedLines?.[li] === false;
                 return (
                   <Fragment key={li}>
-                    <div className={`vi editable ${hasSug ? "hasSug" : ""}`}>
+                    <div className={`vi editable ${pending ? "pending" : ""}`}
+                      title={pending ? "edited — pending admin verification" : undefined}>
                       {editMode ? (
                         <EditableLine
                           text={L.vi}
@@ -128,7 +161,15 @@ export default function PoemView({ scan, imageUrl }: { scan: Scan; imageUrl: str
               })}
             </div>
 
-            <MobileLines lines={p.lines} />
+            <MobileLines lines={eff} />
+
+            {ov?.croppedImage && (
+              <div className="poem-crop">
+                <div className="poem-crop-label">⟳ this poem’s manuscript (cropped &amp; oriented)</div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={assetUrl(ov.croppedImage)} alt="cropped manuscript for this poem" />
+              </div>
+            )}
 
             {p.footnotes?.length > 0 && (
               <div className="notes-block">
@@ -160,20 +201,28 @@ export default function PoemView({ scan, imageUrl }: { scan: Scan; imageUrl: str
                 <ul>{p.uncertain_spans.map((s, i) => <li key={i}>{s}</li>)}</ul>
               </div>
             )}
-            {p.tags?.length > 0 && (
-              <div className="tags">{p.tags.map((t) => <span key={t} className="tag">{t}</span>)}</div>
-            )}
+            <PoemTags poemSlug={`${scan.scanId}-p${pi + 1}`} />
+            <button className="reanalyze-btn" onClick={() => setReanalyze(pi)}>
+              ⟳ transcription wrong? re-analyze this poem from the scan
+            </button>
           </article>
+          )}
         </Fragment>
-      ))}
+        );
+      })}
 
       {scan.pageNotes && <p className="pagenote">{scan.pageNotes}</p>}
 
-      <div className="original">
-        <div className="label">Original manuscript</div>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageUrl} alt="original scan" />
-      </div>
+      {reanalyze !== null ? (
+        <div className="original">
+          <div className="label">Re-analyze · poem {reanalyze + 1} — crop the manuscript</div>
+          <ScanCropper poemSlug={`${scan.scanId}-p${reanalyze + 1}`} imageUrl={imageUrl}
+            focusFraction={(reanalyze + 0.5) / Math.max(1, scan.poems.length)}
+            onClose={() => { setReanalyze(null); refreshOverlay(); }} />
+        </div>
+      ) : (
+        <OriginalScan scanId={scan.scanId} imageUrl={imageUrl} />
+      )}
 
       {sel && (
         <SuggestSheet
@@ -187,13 +236,49 @@ export default function PoemView({ scan, imageUrl }: { scan: Scan; imageUrl: str
   );
 }
 
+// The original scan, with 90° rotate controls for pages that were scanned sideways.
+// Rotation is persisted server-side (the JPEG is re-encoded), so it sticks for everyone.
+function OriginalScan({ scanId, imageUrl }: { scanId: string; imageUrl: string }) {
+  const [bust, setBust] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function rotate(dir: "cw" | "ccw") {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/rotate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ scanId, dir }),
+      });
+      if (res.ok) setBust(`?t=${Date.now()}`); // cache-bust to show the rotated file
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="original">
+      <div className="orig-head">
+        <div className="label">Original manuscript</div>
+        <div className="rotctl">
+          <button onClick={() => rotate("ccw")} disabled={busy} title="Rotate left 90°" aria-label="Rotate left">↺</button>
+          <button onClick={() => rotate("cw")} disabled={busy} title="Rotate right 90°" aria-label="Rotate right">↻</button>
+        </div>
+      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={`${imageUrl}${bust}`} alt="original scan" className={busy ? "rotating" : ""} />
+    </div>
+  );
+}
+
 function SuggestSheet({
   scanId, sel, onClose, onSaved,
 }: {
   scanId: string;
   sel: Sel;
   onClose: () => void;
-  onSaved: (s: Suggestion) => void;
+  onSaved: () => void;
 }) {
   const [value, setValue] = useState(sel.selectedText);
   const [saving, setSaving] = useState(false);
@@ -208,16 +293,13 @@ function SuggestSheet({
   async function submit() {
     setSaving(true);
     try {
-      const s = await saveSuggestion({
-        scanId,
-        poemIndex: sel.poemIndex,
-        lineIndex: sel.lineIndex,
-        originalText: sel.originalText,
-        selectedText: sel.selectedText,
-        suggestedText: value.trim(),
-        spokenText: sp.final,
+      const newLine = before + value.trim() + after; // full corrected line
+      const r = await fetch(`/api/poems/${scanId}-p${sel.poemIndex + 1}/edit`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ lineIndex: sel.lineIndex, field: "vi", after: newLine }),
       });
-      onSaved(s);
+      await r.json();
+      onSaved();
     } finally {
       setSaving(false);
     }

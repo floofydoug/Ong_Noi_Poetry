@@ -70,7 +70,8 @@ model Poem {
   dateIso            DateTime?        @db.Date
   place              String?
   author             String?
-  lines              Json? // [{ vi, en }, ...] bilingual, line-by-line
+  lines              Json? // [{ vi, en }, ...] bilingual, line-by-line — the CURRENT (edited) text
+  originalLines      Json? // frozen AI transcription (version 0) — never mutated
   transcription      String? // plain VI text (for search)
   uncertainSpans     String[]
   confidence         String?
@@ -81,6 +82,10 @@ model Poem {
   boundaryReason     String? // title | signature | separator | gap | only-poem
   boundaryConfidence String?
   sortOrder          Int?
+  deletedAt          DateTime? // soft delete (admin) — excluded from all public queries
+  reanalyzedAt       DateTime? // most recent re-analysis applied (shown publicly as "unverified")
+  reanalysisVerified Boolean          @default(true) // false while a re-analysis awaits admin verify
+  croppedImage       String? // this poem's OWN cropped + oriented manuscript image (from re-analyze)
   status             PoemStatus       @default(draft)
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
@@ -88,12 +93,62 @@ model Poem {
   footnotes          Footnote[]
   marginalia         Marginalia[]
   poemTags           PoemTag[]
-  mentions           PoemMention[] // PRIVATE — never exposed publicly
+  mentions           PoemMention[] // PRIVATE — raw unresolved refs, never exposed publicly
+  people             PoemPerson[] // PRIVATE — resolved people in this poem
   relationsFrom      PoemRelation[]   @relation("relFrom")
   relationsTo        PoemRelation[]   @relation("relTo")
   suggestions        EditSuggestion[]
+  edits              PoemEdit[]
+  reanalyses         PoemReanalysis[]
 
   @@map("poems")
+}
+
+/// A user re-cropped the scan and re-ran the AI on one poem. The whole proposed poem is stored
+/// as a PENDING version for an admin to approve (replaces the poem) or reject.
+model PoemReanalysis {
+  id           String    @id @default(uuid())
+  poemId       String
+  poem         Poem      @relation(fields: [poemId], references: [id], onDelete: Cascade)
+  proposed     Json // { titleVi, title, dateText, place, author, lines:[{vi,en}], confidence }
+  previous     Json? // the poem's prior state, so an admin can revert
+  crop         Json? // { contrast, rotate } — for reference
+  estTokens    Int?
+  inTokens     Int?
+  outTokens    Int?
+  editorLabel  String    @default("guest")
+  ipHash       String? // for rate limiting
+  status       String    @default("pending") // pending | approved | rejected
+  createdAt    DateTime  @default(now())
+  reviewedById String?
+  reviewedAt   DateTime?
+
+  @@index([poemId])
+  @@index([ipHash, createdAt])
+  @@map("poem_reanalyses")
+}
+
+/// Version history: one row per line-edit. Edits apply live; `verified` gates the "pending"
+/// marker; `reverted` marks an edit that an admin rolled back. The AI original lives in
+/// Poem.originalLines, so the full history (AI → each edit) is always reconstructable.
+model PoemEdit {
+  id           String    @id @default(uuid())
+  poemId       String
+  poem         Poem      @relation(fields: [poemId], references: [id], onDelete: Cascade)
+  lineIndex    Int // which line changed
+  field        String    @default("vi") // 'vi' | 'en'
+  before       String
+  after        String
+  editorLabel  String    @default("guest") // admin email, or 'guest'
+  editorId     String? // AdminUser id if an admin made it
+  verified     Boolean   @default(false)
+  verifiedById String?
+  verifiedAt   DateTime?
+  reverted     Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  @@index([poemId])
+  @@map("poem_edits")
 }
 
 /// Join: one scan -> many poems AND one poem -> many scans (A/B/C pages).
@@ -145,10 +200,15 @@ model Tag {
 }
 
 model PoemTag {
-  poemId String
-  tagId  String
-  poem   Poem   @relation(fields: [poemId], references: [id], onDelete: Cascade)
-  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  poemId    String
+  tagId     String
+  poem      Poem     @relation(fields: [poemId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  source    String   @default("ai") // 'ai' | 'community'
+  verified  Boolean  @default(true) // AI/admin tags verified; guest-added start false
+  flagged   Boolean  @default(false) // a visitor suggested this tag is wrong
+  flagCount Int      @default(0)
+  createdAt DateTime @default(now())
 
   @@id([poemId, tagId])
   @@map("poem_tags")
@@ -177,6 +237,106 @@ model PoemRelation {
   relation    String? // 'possible-version'
 
   @@map("poem_relations")
+}
+
+/// PRIVATE — a resolved individual (the people registry). Built by clustering `PoemMention`s;
+/// family members are `verified` from the human-curated seed. NEVER exposed on the public site.
+model Person {
+  id            String           @id @default(uuid())
+  slug          String           @unique
+  canonicalName String
+  kind          String           @default("person") // 'person' | 'family-collective'
+  relationship  String? // to the poet: child | grandchild | wife | child-in-law | caregiver | ...
+  aliases       String[] // every name-as-written spelling
+  gender        String?
+  deceased      Boolean          @default(false)
+  nationality   String?
+  lifeEvents    String[]
+  notes         String?
+  verified      Boolean          @default(false) // human-confirmed identity
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  poems         PoemPerson[]
+  relationsFrom PersonRelation[] @relation("personFrom")
+  relationsTo   PersonRelation[] @relation("personTo")
+
+  @@map("people")
+}
+
+/// Family tree: directed link A -> B (kind='spouse' is symmetric; 'parent' means A is parent of B).
+model PersonRelation {
+  id        String @id @default(uuid())
+  personAId String
+  personBId String
+  personA   Person @relation("personFrom", fields: [personAId], references: [id], onDelete: Cascade)
+  personB   Person @relation("personTo", fields: [personBId], references: [id], onDelete: Cascade)
+  kind      String // 'spouse' | 'parent'
+
+  @@unique([personAId, personBId, kind])
+  @@map("person_relations")
+}
+
+/// PRIVATE — links a poem to a resolved person (who appears in / is addressed by it).
+model PoemPerson {
+  poemId        String
+  personId      String
+  poem          Poem     @relation(fields: [poemId], references: [id], onDelete: Cascade)
+  person        Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  nameAsWritten String? // how this person is named in THIS poem
+  role          String? // 'subject' | 'addressed' | 'mentioned'
+  confidence    String? // 'confirmed' | 'proposed'
+  source        String   @default("ai") // 'ai' | 'community'
+  verified      Boolean  @default(true) // guest-added person tags start false
+  flagged       Boolean  @default(false)
+  flagCount     Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@id([poemId, personId])
+  @@map("poem_people")
+}
+
+/// An invited admin (passwordless — auth is by emailed magic link).
+model AdminUser {
+  id          String         @id @default(uuid())
+  email       String         @unique
+  name        String?
+  role        String         @default("admin")
+  active      Boolean        @default(true)
+  invitedById String?
+  createdAt   DateTime       @default(now())
+  lastLogin   DateTime?
+  sessions    AdminSession[]
+  invitesSent AdminInvite[]  @relation("inviter")
+
+  @@map("admin_users")
+}
+
+/// A one-time magic link — either an invite (grant admin) or a login (existing admin).
+/// Token is stored hashed; the raw token only lives in the emailed URL. Expires in 7 days.
+model AdminInvite {
+  id          String     @id @default(uuid())
+  email       String
+  tokenHash   String     @unique
+  kind        String     @default("invite") // 'invite' | 'login'
+  expiresAt   DateTime
+  usedAt      DateTime?
+  invitedById String?
+  invitedBy   AdminUser? @relation("inviter", fields: [invitedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now())
+
+  @@map("admin_invites")
+}
+
+/// A logged-in session (httpOnly signed cookie holds the raw token; DB stores its hash).
+model AdminSession {
+  id        String    @id @default(uuid())
+  userId    String
+  user      AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  @@map("admin_sessions")
 }
 
 /// Voice/text edit suggestions from the poem page (admin-reviewed).

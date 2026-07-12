@@ -1,0 +1,37 @@
+name: Deploy to production
+
+# Every push to main SSHes into the EC2 host, pulls the new code, rebuilds, and restarts the app.
+# The build runs on the server (which holds the production .env); if it fails, systemctl restart is
+# never reached, so the currently-live app keeps serving. Secrets: EC2_HOST, EC2_SSH_KEY.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 15m
+          script: |
+            set -e
+            cd /opt/app
+            git fetch --all --prune
+            git reset --hard origin/main
+            cd web
+            npm ci
+            npx prisma generate
+            npm run build
+            sudo systemctl restart tp-web
+            sleep 3
+            systemctl is-active tp-web

@@ -10,6 +10,9 @@
     "dev:clean": "rm -rf .next && next dev -p 8000"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.111.0",
+    "@aws-sdk/client-s3": "^3.1085.0",
+    "@aws-sdk/client-sesv2": "^3.1085.0",
     "@prisma/client": "^6.19.3",
     "@supabase/supabase-js": "^2.109.0",
     "@tiptap/extension-highlight": "^3.27.1",

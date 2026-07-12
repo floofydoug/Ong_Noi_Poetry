@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""AI analysis of the poem scans — grouped by sitting, via the Batch API.
+"""AI analysis of the poem scans — grouped by sitting, SYNCHRONOUS (one call per group).
 
 - Groups A/B/C continuation pages of one sitting into a SINGLE multi-image request
   (so poems that span pages aren't split). Duplicate-numbered scans stay separate.
-- Uses the Anthropic Message Batches API (50% cheaper, offline-friendly).
-- Logs parse/validation errors per request instead of crashing the run.
+- Calls the Messages API one group at a time (streamed) so timing is PREDICTABLE
+  (~steady seconds per group) and files land immediately — no async batch queue.
+  Full price (no 50% batch discount); the tradeoff we chose for predictability.
+- Logs parse/validation/API errors per group instead of crashing the run.
 - Reports wall-clock timing + token usage, and extrapolates to all 298 groups.
 
 Output: data/transcriptions/<group>.json  — the IMMUTABLE analysis for that sitting
@@ -14,22 +16,57 @@ Setup:  pip install anthropic pillow ; export ANTHROPIC_API_KEY=...
 Run:    python3 scripts/transcribe.py --limit 5
 """
 import argparse, base64, collections, csv, datetime, hashlib, io, json, os, re, sys, time
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import build_derivatives  # reuse the web-JPEG builder so images land with the analysis
 
 MANIFEST = "/Users/doug/ongs_poems/data/originals-manifest.csv"
 ORIGINALS = "/Users/doug/ongs_poems/originals"
 OUT_DIR = "/Users/doug/ongs_poems/data/transcriptions"
 ERR_JSON = "/Users/doug/ongs_poems/data/analysis-errors.json"
+PROGRESS_JSON = "/Users/doug/ongs_poems/data/analysis-progress.json"  # live run state for the UI
 MODEL = "claude-opus-4-8"
 PROMPT_VERSION = "3-grouped"
-MAX_EDGE = 2200
+MAX_EDGE = 2576  # Opus 4.8 high-res tier native max (2576px / 4784 visual tokens). For sittings
+                 # with >20 pages we subdivide into ≤20-image sub-requests so this full res is kept
+                 # (the 2000px cap only applies to requests with >20 images). See transcribe_batch.py.
+SUBDIVIDE_AT = 10  # max images per request. ≤20 keeps full 2576px res; 10 also keeps each
+                   # request's JSON output well under the token cap (20 was truncating dense sittings).
 TOTAL_GROUPS = 298  # for extrapolation (from the manifest)
+
+# Real family names are PRIVATE — kept in a gitignored local file, injected at runtime
+# so they never appear in this public script. Absent file → the hint is simply omitted.
+FAMILY_NAMES_FILE = "/Users/doug/ongs_poems/data/family-names.local.json"
+
+
+def family_hint():
+    try:
+        names = json.load(open(FAMILY_NAMES_FILE)).get("grandchildren") or []
+    except Exception:
+        return ""
+    if not names:
+        return ""
+    return (
+        "\n\nKNOWN FAMILY NAMES (the author's grandchildren) — when a scrawled or "
+        "unclear word plausibly matches one of these, prefer the known spelling "
+        "rather than guessing a common word or marking it [?]: "
+        + ", ".join(names) + ". Apply the diacritics you actually see. Whenever one "
+        "appears, capture it in that poem's `mentions` with relationship='grandchild' "
+        "and name_as_written set to exactly how it is spelled on the page."
+    )
+
 
 SYSTEM = (
     "You transcribe scanned, handwritten Vietnamese poems by a single author. "
     "Preserve EXACT Vietnamese diacritics and line breaks. Do not translate, "
     "modernize, or correct spelling. Mark any unreadable character as [?] and "
     "list those fragments in uncertain_spans. Pages may be rotated or faint. "
-    "A page usually contains SEVERAL distinct poems — segment them all."
+    "A page usually contains SEVERAL distinct poems — segment them all.\n\n"
+    "THE AUTHOR/POET always signs these. His name is 'Thanh-Phùng' (dấu HUYỀN on the u → ù) — "
+    "when the full name is spelled out, render it 'Thanh-Phùng', NOT Phụng/Phượng/Phương/Phong. "
+    "He also signs with initials 'T.P.' or his dharma name 'Chánh Tuệ Minh' — keep those as written. "
+    "His wife co-signs some poems as 'Chân/Chơn Phổ Phước' / 'Lê Thị Phong' — she is a DIFFERENT "
+    "person; never merge her name into his."
+    + family_hint()
 )
 
 # (schema identical to the per-poem structure we settled on)
@@ -114,16 +151,22 @@ def group_id(scan_id):
     return scan_id if suffix else base
 
 
-def preprocess(filename):
+def preprocess_frames(filename):
+    """A .tif is a MULTI-PAGE scan (one sitting) — return a PNG for EVERY frame, in
+    order. Reading only frame 0 dropped ~92% of the archive's pages."""
     from PIL import Image, ImageOps
-    img = Image.open(os.path.join(ORIGINALS, filename))
-    img = ImageOps.exif_transpose(img).convert("L")
-    img = ImageOps.autocontrast(img, cutoff=1)
-    w, h = img.size
-    s = MAX_EDGE / max(w, h)
-    if s < 1:
-        img = img.resize((round(w * s), round(h * s)), Image.LANCZOS)
-    buf = io.BytesIO(); img.save(buf, format="PNG"); return buf.getvalue()
+    im = Image.open(os.path.join(ORIGINALS, filename))
+    out = []
+    for i in range(getattr(im, "n_frames", 1)):
+        im.seek(i)
+        img = ImageOps.exif_transpose(im.copy()).convert("L")
+        img = ImageOps.autocontrast(img, cutoff=1)
+        w, h = img.size
+        s = MAX_EDGE / max(w, h)
+        if s < 1:
+            img = img.resize((round(w * s), round(h * s)), Image.LANCZOS)
+        buf = io.BytesIO(); img.save(buf, format="PNG"); out.append(buf.getvalue())
+    return out
 
 
 def load_groups():
@@ -150,102 +193,154 @@ def log_err(rec):
     json.dump(errs, open(ERR_JSON, "w"), ensure_ascii=False, indent=2)
 
 
+def write_progress(state):
+    """Atomically write live run state so the UI can poll it while we work."""
+    state["updated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    tmp = PROGRESS_JSON + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(state, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, PROGRESS_JSON)  # atomic — the UI never reads a half-written file
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=5, help="number of groups to process")
-    ap.add_argument("--poll", type=int, default=15, help="seconds between batch status polls")
+    ap.add_argument("--only", help="comma-separated group ids to (re)process, e.g. set-052,set-010")
+    ap.add_argument("--force", action="store_true", help="re-analyze even if a json already exists")
     args = ap.parse_args()
     if not os.environ.get("ANTHROPIC_API_KEY"):
         sys.exit("Set ANTHROPIC_API_KEY first")
     import anthropic
-    from anthropic.types.message_create_params import MessageCreateParamsNonStreaming
-    from anthropic.types.messages.batch_create_params import Request
     client = anthropic.Anthropic()
     os.makedirs(OUT_DIR, exist_ok=True)
 
     groups = load_groups()
-    todo = [(g, rows) for g, rows in groups.items()
-            if not os.path.exists(os.path.join(OUT_DIR, f"{g}.json"))][: args.limit]
+    if args.only:
+        want = {g.strip() for g in args.only.split(",")}
+        todo = [(g, rows) for g, rows in groups.items() if g in want]
+    else:
+        todo = [(g, rows) for g, rows in groups.items()
+                if args.force or not os.path.exists(os.path.join(OUT_DIR, f"{g}.json"))][: args.limit]
     if not todo:
         print("Nothing to do — all selected groups already analyzed."); return
     done_count = sum(1 for g in groups if os.path.exists(os.path.join(OUT_DIR, f"{g}.json")))
     print(f"Groups total={len(groups)}  done={done_count}  running now={len(todo)}\n")
 
-    # Build one batch request per group (multi-image).
-    reqs, meta = [], {}
-    for g, rows in todo:
-        imgs = [preprocess(r["original_filename"]) for r in rows]
-        sha = hashlib.sha256(b"".join(imgs)).hexdigest()[:16]
-        content = [{"type": "image", "source": {"type": "base64", "media_type": "image/png",
-                    "data": base64.standard_b64encode(b).decode()}} for b in imgs]
-        content.append({"type": "text", "text": USER_TEXT})
-        reqs.append(Request(custom_id=g, params=MessageCreateParamsNonStreaming(
-            model=MODEL, max_tokens=8000, system=SYSTEM,
-            output_config={"format": {"type": "json_schema", "schema": SCHEMA}},
-            messages=[{"role": "user", "content": content}])))
-        meta[g] = {"scan_ids": [r["scan_id"] for r in rows], "pages": len(rows), "images_sha": sha}
-        print(f"  queued {g}  ({len(rows)} page{'s' if len(rows) > 1 else ''})")
-
-    print("\nSubmitting batch…")
-    t0 = time.time()
-    batch = client.messages.batches.create(requests=reqs)
-    print(f"  batch {batch.id} — polling every {args.poll}s")
-    while True:
-        b = client.messages.batches.retrieve(batch.id)
-        c = b.request_counts
-        if b.processing_status == "ended":
-            break
-        print(f"  … {b.processing_status}: processing={c.processing} succeeded={c.succeeded} errored={c.errored}")
-        time.sleep(args.poll)
-    elapsed = time.time() - t0
-    print(f"  ended in {elapsed:.0f}s\n")
-
+    print("Processing synchronously — one group at a time, streamed.\n")
     tin = tout = ok = fail = 0
-    for r in client.messages.batches.results(batch.id):
-        g = r.custom_id
-        if r.result.type != "succeeded":
+    times = []
+    run_t0 = time.time()
+    state = {
+        "status": "running",
+        "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "model": MODEL, "prompt_version": PROMPT_VERSION,
+        "total_groups": len(groups), "already_done": done_count,
+        "limit": args.limit, "mode": "synchronous",
+        "queued": [g for g, _ in todo], "current": None,
+        "completed": [], "failed": [],
+        "totals": {"ok": 0, "fail": 0, "in_tokens": 0, "out_tokens": 0,
+                   "billed_usd": 0.0, "elapsed_s": 0, "poems": 0, "avg_seconds": 0},
+    }
+    write_progress(state)
+
+    for i, (g, rows) in enumerate(todo):
+        state["current"] = {"group": g, "index": i + 1, "of": len(todo),
+                            "pages": len(rows), "started_at":
+                            datetime.datetime.now(datetime.timezone.utc).isoformat()}
+        state["totals"]["elapsed_s"] = round(time.time() - run_t0)
+        write_progress(state)
+
+        # every frame of every scan in this sitting, in order
+        imgs = [png for r in rows for png in preprocess_frames(r["original_filename"])]
+        b64 = [base64.standard_b64encode(b).decode() for b in imgs]
+        sha = hashlib.sha256(b"".join(imgs)).hexdigest()[:16]
+        scan_ids = [r["scan_id"] for r in rows]
+
+        # SUBDIVIDE dense sittings into ≤SUBDIVIDE_AT-page requests (keeps full 2576px res and
+        # avoids output truncation), streaming each, then STITCH poems back in page order.
+        nsub = (len(b64) + SUBDIVIDE_AT - 1) // SUBDIVIDE_AT
+        t0 = time.time(); poems = []; ui = uo = 0; err = None
+        for si in range(nsub):
+            part = b64[si * SUBDIVIDE_AT:(si + 1) * SUBDIVIDE_AT]
+            content = [{"type": "image", "source": {"type": "base64", "media_type": "image/png",
+                        "data": x}} for x in part]
+            content.append({"type": "text", "text": USER_TEXT})
+            mt = min(32000, max(8000, 3000 * len(part)))
+            try:
+                with client.messages.stream(
+                    model=MODEL, max_tokens=mt, system=SYSTEM,
+                    output_config={"format": {"type": "json_schema", "schema": SCHEMA}},
+                    messages=[{"role": "user", "content": content}],
+                ) as stream:
+                    msg = stream.get_final_message()
+                text = next(blk.text for blk in msg.content if blk.type == "text")
+                d = json.loads(text)
+                if "poems" not in d:
+                    raise ValueError("missing 'poems'")
+                poems += d["poems"]; ui += msg.usage.input_tokens; uo += msg.usage.output_tokens
+            except Exception as e:
+                err = e
+                log_err({"group": g, "sub": si, "scan_ids": scan_ids, "kind": "parse_error",
+                         "error": str(e), "stop_reason": getattr(locals().get("msg", None), "stop_reason", None)})
+                break
+        dt = time.time() - t0
+
+        if err is not None:
             fail += 1
-            err = getattr(getattr(r.result, "error", None), "type", None)
-            log_err({"group": g, "scan_ids": meta[g]["scan_ids"], "kind": "batch_result",
-                     "result_type": r.result.type, "error": err, "batch_id": batch.id})
-            print(f"  ✗ {g}: {r.result.type}"); continue
-        msg = r.result.message
-        try:
-            text = next(blk.text for blk in msg.content if blk.type == "text")
-            data = json.loads(text)
-            if "poems" not in data:
-                raise ValueError("missing 'poems'")
-        except Exception as e:
-            fail += 1
-            log_err({"group": g, "scan_ids": meta[g]["scan_ids"], "kind": "parse_error",
-                     "error": str(e), "raw_snippet": (text[:400] if "text" in dir() else ""),
-                     "stop_reason": getattr(msg, "stop_reason", None), "batch_id": batch.id})
-            print(f"  ✗ {g}: parse error ({e})"); continue
-        ui, uo = msg.usage.input_tokens, msg.usage.output_tokens
-        tin += ui; tout += uo; ok += 1
-        data["_meta"] = {
-            "group": g, **meta[g], "model": MODEL, "prompt_version": PROMPT_VERSION,
-            "input_tokens": ui, "output_tokens": uo, "batch_id": batch.id,
+            state["failed"].append({"group": g, "kind": "sub_failed", "error": str(err)})
+            state["totals"]["fail"] = fail; state["current"] = None; write_progress(state)
+            print(f"  ✗ {g}: {err}"); continue
+
+        tin += ui; tout += uo; ok += 1; times.append(dt)
+        data = {"poems": poems, "_meta": {
+            "group": g, "scan_ids": scan_ids, "pages": len(imgs), "files": len(rows),
+            "subrequests": nsub, "images_sha": sha, "model": MODEL,
+            "prompt_version": PROMPT_VERSION, "input_tokens": ui, "output_tokens": uo,
             "analyzed_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "status": "needs_review",
-        }
+            "status": "needs_review"}}
         with open(os.path.join(OUT_DIR, f"{g}.json"), "w") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        n = len(data.get("poems", []))
-        print(f"  ✓ {g}: {n} poem(s)  in/out={ui}/{uo}")
+        # Build the web display JPEG immediately so the poem is never imageless.
+        try:
+            build_derivatives.build_group(g)
+        except Exception as e:
+            print(f"  ! {g}: analysis saved but image build failed ({e})")
+        poems = data.get("poems", [])
+        n = len(poems)
+        state["completed"].append({
+            "group": g, "poems": n, "pages": len(imgs), "seconds": round(dt),
+            "in_tokens": ui, "out_tokens": uo,
+            "titles": [(p.get("title_vi") or p.get("title") or "Không đề") for p in poems],
+            "confidence": [p.get("confidence") for p in poems],
+            "sensitivity": [(p.get("sensitivity") or {}).get("level") for p in poems],
+        })
+        state["current"] = None
+        state["totals"].update({
+            "ok": ok, "fail": fail, "in_tokens": tin, "out_tokens": tout,
+            "billed_usd": round((tin * 5 + tout * 25) / 1e6, 4),
+            "elapsed_s": round(time.time() - run_t0),
+            "poems": sum(c["poems"] for c in state["completed"]),
+            "avg_seconds": round(sum(times) / len(times)) if times else 0,
+        })
+        write_progress(state)
+        print(f"  ✓ {g}: {n} poem(s)  {dt:.0f}s  in/out={ui}/{uo}")
+    elapsed = time.time() - run_t0
+    state["status"] = "done"; state["current"] = None
+    state["totals"]["elapsed_s"] = round(elapsed)
+    write_progress(state)
 
     # ---- report ----
-    billed = (tin * 5 + tout * 25) / 1e6 * 0.5  # batch = 50% off
+    billed = (tin * 5 + tout * 25) / 1e6  # synchronous = full price (no batch discount)
     print(f"\n=== run report ===")
     print(f"  groups ok={ok} fail={fail}  wall-clock={elapsed:.0f}s")
-    print(f"  tokens: in={tin:,} out={tout:,}  billed≈${billed:.3f} (Batch API, 50% off)")
+    print(f"  tokens: in={tin:,} out={tout:,}  billed≈${billed:.3f} (synchronous, full price)")
     if ok:
         avg_in, avg_out = tin / ok, tout / ok
-        full = (avg_in * 5 + avg_out * 25) / 1e6 * 0.5 * TOTAL_GROUPS
-        print(f"  per-group avg: in={avg_in:.0f} out={avg_out:.0f}")
-        print(f"  EXTRAPOLATION to all {TOTAL_GROUPS} groups: ≈${full:.2f} billed")
-        print(f"    (time: Batch API runs requests in parallel — a single {TOTAL_GROUPS}-group batch")
-        print(f"     typically finishes well under an hour, NOT {elapsed/ok*TOTAL_GROUPS/60:.0f} min linearly)")
+        avg_t = sum(times) / len(times)
+        full = (avg_in * 5 + avg_out * 25) / 1e6 * TOTAL_GROUPS
+        print(f"  per-group avg: {avg_t:.0f}s  in={avg_in:.0f} out={avg_out:.0f}")
+        print(f"  EXTRAPOLATION to all {TOTAL_GROUPS} groups: "
+              f"≈${full:.2f} billed, ≈{avg_t * TOTAL_GROUPS / 60:.0f} min sequential")
     if fail:
         print(f"  {fail} failure(s) logged to {ERR_JSON}")
 

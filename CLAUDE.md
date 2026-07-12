@@ -1,7 +1,9 @@
 # Ông Nội Poetry — project guide
 
 A digital archive of ~hundreds–thousands of handwritten Vietnamese poems by the user's
-grandfather ("Ông", signs **Thanh-Phụng / T.P.**). For each scan we produce a best-effort
+grandfather ("Ông", signs **Thanh-Phùng / T.P.** — dấu huyền on the *u* (ù); dharma name
+*Chánh Tuệ Minh*. NOT Phụng/Phượng/Phương — his **wife** is the separate co-signer
+*Chân/Chơn Phổ Phước / Lê Thị Phong*, never merge her into him). For each scan we produce a best-effort
 **digital transcription** with **line-by-line English translation**, shown in a
 [spacesleftblank.com](https://spacesleftblank.com)-style layout (minimalist serif, near-white
 paper, `· · ·` dividers), with the **original scan below** (scroll down). Guests browse;

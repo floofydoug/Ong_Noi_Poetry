@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Thanh Phung Poetry — small RDS PostgreSQL for production.
+
+Parameters:
+  DBPassword:
+    Type: String
+    NoEcho: true
+    Description: Master password for the ongnoi DB user.
+    MinLength: 16
+
+Resources:
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Postgres 5432 access for Thanh Phung Poetry
+      SecurityGroupIngress:
+        # Public + SSL-required + strong password (Amplify SSR has dynamic egress IPs).
+        # Harden later by restricting to known ranges or moving into a VPC.
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - { Key: app, Value: thanhphung }
+
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: thanhphung-db
+      Engine: postgres
+      EngineVersion: "17.6"
+      DBInstanceClass: db.t4g.micro
+      AllocatedStorage: "20"
+      StorageType: gp3
+      DBName: ongnoi
+      MasterUsername: ongnoi
+      MasterUserPassword: !Ref DBPassword
+      PubliclyAccessible: true
+      VPCSecurityGroups:
+        - !GetAtt DBSecurityGroup.GroupId
+      BackupRetentionPeriod: 7
+      MultiAZ: false
+      StorageEncrypted: true
+      Tags:
+        - { Key: app, Value: thanhphung }
+
+Outputs:
+  Endpoint:
+    Value: !GetAtt DBInstance.Endpoint.Address
+  DatabaseUrl:
+    Description: Paste into web/.env DATABASE_URL_PROD (fill the password)
+    Value: !Sub "postgresql://ongnoi:PASSWORD@${DBInstance.Endpoint.Address}:5432/ongnoi?sslmode=require"

@@ -1,0 +1,22 @@
+version: 1
+# Thanh Phung Poetry — AWS Amplify build spec.
+# Monorepo: the Next.js app lives in web/. Prisma client is generated at build time.
+applications:
+  - appRoot: web
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+            - npx prisma generate
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: .next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+          - .next/cache/**/*
