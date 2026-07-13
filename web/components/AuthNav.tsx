@@ -23,18 +23,19 @@ export default function AuthNav() {
     location.reload();
   }
 
-  if (!me) return <div className="authnav" aria-hidden />; // reserve space, no flicker
-  if (!me.admin)
-    return (
-      <div className="authnav">
-        <Link href="/admin/signin" className="authnav-link">Admin sign in</Link>
-      </div>
-    );
+  // The gratitude link is always present (independent of auth state); the auth control follows.
   return (
     <div className="authnav">
-      <span className="authnav-who">{me.name || me.email}</span>
-      <Link href="/admin" className="authnav-link">Dashboard</Link>
-      <button type="button" className="authnav-link authnav-out" onClick={signOut}>Sign out</button>
+      <Link href="/thanks" className="authnav-link authnav-thanks">With gratitude</Link>
+      {!me ? null : !me.admin ? (
+        <Link href="/admin/signin" className="authnav-link">Admin sign in</Link>
+      ) : (
+        <>
+          <span className="authnav-who">{me.name || me.email}</span>
+          <Link href="/admin" className="authnav-link">Dashboard</Link>
+          <button type="button" className="authnav-link authnav-out" onClick={signOut}>Sign out</button>
+        </>
+      )}
     </div>
   );
 }
