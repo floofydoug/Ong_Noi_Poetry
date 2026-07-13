@@ -7,14 +7,18 @@ import { sendMagicLink } from "@/lib/email";
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const { email } = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({}));
+  const email = (body.email || "").trim().toLowerCase(); // lowercase → matches the verified SES identity
   if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
   if (await canLogin(email)) {
     const raw = await createMagicToken(email, "login");
     const base = process.env.APP_URL || new URL(req.url).origin;
     const url = `${base}/admin/accept?token=${raw}`;
     const r = await sendMagicLink(email, url, "login");
-    return NextResponse.json({ ok: true, ...(r.sent === "stub" ? { devLink: url } : {}) });
+    // SECURITY: never expose the link in the response in production — it must only arrive by email
+    // (or the server log for ops). The dev stub link is for local development only.
+    const expose = process.env.NODE_ENV !== "production" && r.sent === "stub";
+    return NextResponse.json({ ok: true, ...(expose ? { devLink: url } : {}) });
   }
   return NextResponse.json({ ok: true });
 }
