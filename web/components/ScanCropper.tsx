@@ -18,6 +18,7 @@ export default function ScanCropper({ poemSlug, imageUrl, onClose, focusFraction
   const [box, setBox] = useState<Box | null>(null);
   const [contrast, setContrast] = useState(1.1);
   const [rotate, setRotate] = useState(0);
+  const [context, setContext] = useState(""); // optional hint for the AI (e.g. correct title/names)
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [result, setResult] = useState<any>(null);
@@ -121,7 +122,7 @@ export default function ScanCropper({ poemSlug, imageUrl, onClose, focusFraction
     try {
       const r = await fetch(`/api/poems/${poemSlug}/reanalyze`, {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ image: renderPng(), crop: { contrast, rotate }, estTokens: est }),
+        body: JSON.stringify({ image: renderPng(), crop: { contrast, rotate }, estTokens: est, context: context.trim() || undefined }),
       });
       const d = await r.json();
       if (!r.ok) setError(d.error || "re-analysis failed"); else setResult(d);
@@ -153,8 +154,10 @@ export default function ScanCropper({ poemSlug, imageUrl, onClose, focusFraction
       {!box && <p className="cropper-hint">✎ Drag a box over exactly where this poem starts and ends on the scan below.</p>}
       <div className="cropper-stage" ref={wrapRef} onPointerDown={startNew} onPointerMove={onMove}
         onPointerUp={onUp} onPointerCancel={onUp}>
+        {/* crossOrigin is REQUIRED: in prod the scan comes from the images CDN (different origin),
+            so without it the canvas is tainted and toDataURL() throws. Needs CORS headers on the CDN. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img ref={imgRef} src={imageUrl} alt="manuscript" draggable={false} style={{ filter: `contrast(${contrast})` }} />
+        <img ref={imgRef} src={imageUrl} alt="manuscript" crossOrigin="anonymous" draggable={false} style={{ filter: `contrast(${contrast})` }} />
         {box && (
           <div className="crop-box" style={{ left: box.x, top: box.y, width: box.w, height: box.h }} onPointerDown={grab("move")}>
             <span className="crop-h nw" onPointerDown={grab("nw")} />
@@ -177,6 +180,14 @@ export default function ScanCropper({ poemSlug, imageUrl, onClose, focusFraction
               <span className="mono">{rotate}°</span>
               <button className="ct-rot" onClick={() => setRotate((r) => (r + 90) % 360)}>↻</button>
             </div>
+            <label className="ct-context">Context for the AI <span className="mono">(optional)</span>
+              <textarea
+                value={context}
+                onChange={(e) => setContext(e.target.value)}
+                placeholder={`e.g. the title should read "Minh / Hoàng"; the author is Thanh-Phùng`}
+                rows={2}
+              />
+            </label>
             <span className="ct-est">≈ 1 page · ~{est.toLocaleString()} tokens</span>
             <div className="ct-actions">
               <button className="btn ghost" onClick={onClose}>cancel</button>

@@ -285,6 +285,11 @@ a { color: inherit; }
 .ct-item { display: flex; align-items: center; gap: 8px; }
 .ct-item input[type=range] { flex: 1; }
 .ct-rot { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--line); background: #fff; cursor: pointer; font-size: 14px; }
+.ct-context { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--muted); }
+.ct-context textarea {
+  width: 100%; resize: vertical; min-height: 40px; padding: 6px 8px; border: 1px solid var(--line);
+  border-radius: 7px; font: 12px/1.35 var(--sans); color: var(--ink); background: #fff;
+}
 .ct-est { color: var(--muted); font-size: 11px; }
 .ct-actions { display: flex; gap: 8px; }
 .ct-actions .btn { padding: 9px 12px; font-size: 12px; flex: 1; }

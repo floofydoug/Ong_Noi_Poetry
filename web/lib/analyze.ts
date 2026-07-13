@@ -37,9 +37,14 @@ const SCHEMA = {
   },
 };
 
-export async function analyzeCrop(pngBase64: string) {
+export async function analyzeCrop(pngBase64: string, context?: string) {
   const t0 = Date.now();
-  console.log(`[reanalyze] analyzeCrop start — image ${Math.round(pngBase64.length / 1024)}KB (b64)`);
+  const hint = context?.trim()
+    ? `\n\nThe person requesting this re-read added context you should weigh (they may know the ` +
+      `people/place/title better than is legible): "${context.trim()}". Use it to resolve ambiguous ` +
+      `readings, but stay faithful to what is actually on the page.`
+    : "";
+  console.log(`[reanalyze] analyzeCrop start — image ${Math.round(pngBase64.length / 1024)}KB (b64)${hint ? " + context" : ""}`);
   // Stream: a single dense poem can generate thousands of tokens; a non-streaming request risks
   // proxy/idle timeouts and looks "hung" to the user. Streaming keeps the connection alive and we
   // assemble the final message at the end. (Per the Anthropic SDK long-output guidance.)
@@ -53,7 +58,7 @@ export async function analyzeCrop(pngBase64: string) {
       role: "user",
       content: [
         { type: "image", source: { type: "base64", media_type: "image/png", data: pngBase64 } },
-        { type: "text", text: USER_TEXT },
+        { type: "text", text: USER_TEXT + hint },
       ],
     }],
   } as any);

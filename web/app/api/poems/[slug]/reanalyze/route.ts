@@ -42,9 +42,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       return NextResponse.json({ error: "The site's daily re-analyze limit is reached. Please try again tomorrow." }, { status: 429 });
   }
 
+  const context = typeof body.context === "string" ? body.context.slice(0, 1000) : undefined;
   let result;
   try {
-    result = await analyzeCrop(image);
+    result = await analyzeCrop(image, context);
   } catch (e) {
     console.error(`[reanalyze] FAILED for ${slug}:`, (e as Error).message);
     return NextResponse.json({ error: `re-analysis failed: ${(e as Error).message}` }, { status: 500 });
