@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getCurrentAdmin, createMagicToken } from "@/lib/auth";
-import { sendMagicLink } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 
-// Admin-only. GET lists admins + pending invites. POST emails a 7-day invite link.
+// Admin-only. GET lists admins + pending invites. POST mints a 7-day invite link and
+// returns it for the admin to send manually (we don't have SES production access).
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -28,6 +28,6 @@ export async function POST(req: Request) {
   const raw = await createMagicToken(email, "invite", admin.id);
   const base = process.env.APP_URL || new URL(req.url).origin;
   const url = `${base}/admin/accept?token=${raw}`;
-  const r = await sendMagicLink(email, url, "invite");
-  return NextResponse.json({ ok: true, ...(r.sent === "stub" ? { devLink: url } : {}) });
+  // Sandbox-only SES → don't try to send. Return the link for the admin to deliver themselves.
+  return NextResponse.json({ ok: true, link: url, email });
 }

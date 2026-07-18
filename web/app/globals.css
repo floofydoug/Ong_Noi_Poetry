@@ -461,6 +461,18 @@ a.thanks-name:hover { color: var(--accent); border-bottom-color: var(--accent); 
 .devlink { font: 13px/1.5 var(--sans); color: var(--accent); }
 .invite-form { display: flex; gap: 10px; margin: 18px 0 6px; max-width: 520px; }
 .invite-form input { flex: 1; }
+.invite-link { margin: 8px 0 18px; max-width: 640px; }
+.invite-link .muted { margin: 0 0 8px; }
+.invite-link-row { display: flex; gap: 8px; align-items: center; }
+.invite-link-row input {
+  flex: 1; font: 12px/1 var(--mono, monospace); padding: 11px 12px;
+  border: 1px solid var(--line); border-radius: 8px; background: #fbfaf7;
+}
+.invite-link-row button, .invite-link-row .btn {
+  font: 13px/1 var(--sans); padding: 11px 14px; border-radius: 8px; border: 1px solid var(--ink);
+  background: var(--ink); color: var(--paper); cursor: pointer; text-decoration: none; white-space: nowrap;
+}
+.invite-link-row .btn { background: var(--paper); color: var(--ink); }
 
 /* ---------- admin controls on poems/tags ---------- */
 .poem-del {
