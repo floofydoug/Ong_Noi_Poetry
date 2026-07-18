@@ -473,6 +473,13 @@ a.thanks-name:hover { color: var(--accent); border-bottom-color: var(--accent); 
   background: var(--ink); color: var(--paper); cursor: pointer; text-decoration: none; white-space: nowrap;
 }
 .invite-link-row .btn { background: var(--paper); color: var(--ink); }
+.row-actions { display: flex; gap: 14px; }
+.linkish {
+  font: 13px/1 var(--sans); background: none; border: 0; padding: 0; cursor: pointer;
+  color: var(--accent); text-decoration: underline; text-underline-offset: 3px;
+}
+.linkish:disabled { opacity: .4; cursor: default; }
+.linkish.danger { color: #a3402f; }
 
 /* ---------- admin controls on poems/tags ---------- */
 .poem-del {
